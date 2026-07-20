@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="EdTechApi.API/EdTechApi.API.csproj" />
+  <Project Path="EdTechApi.Business/EdTechApi.Business.csproj" />
+  <Project Path="EdTechApi.Core/EdTechApi.Core.csproj" />
+  <Project Path="EdTechApi.DataAccess/EdTechApi.DataAccess.csproj" />
+</Solution>

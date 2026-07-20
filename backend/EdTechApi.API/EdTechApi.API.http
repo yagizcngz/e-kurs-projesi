@@ -1,0 +1,21 @@
+@EdTechApi.API_HostAddress = http://localhost:5157
+
+### Başarılı Kayıt Testi (9 Haneli Doğru Numara)
+POST {{EdTechApi.API_HostAddress}}/api/students
+Content-Type: application/json
+
+{
+  "firstName": "Yağız",
+  "lastName": "Cengiz",
+  "studentNumber": "123456789"
+}
+
+### Hatalı Kayıt Testi (8 Haneli Eksik Numara)
+POST {{EdTechApi.API_HostAddress}}/api/students
+Content-Type: application/json
+
+{
+  "firstName": "Hata",
+  "lastName": "Test",
+  "studentNumber": "12345678"
+}
