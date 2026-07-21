@@ -204,17 +204,52 @@ function DashboardPage() {
 
   const calculateTotalRevenue = () => {
     let total = 0;
-    dbCourses.forEach((c) => {
-      const priceString = String(c.price || c.Price || "0");
-      const numericPrice = Number(priceString.replace(/\D/g, "")) || 0;
-      const studentCount = c.students || c.Students || 0;
-      total += numericPrice * studentCount;
+
+    // Şu anki tarihi alıyoruz (Aylık gelir hesaplamak için)
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    dbEnrollments.forEach((enrollment) => {
+      // 1. Önce bu kaydın BU AY içinde yapılıp yapılmadığını kontrol et
+      const recordDateRaw =
+        enrollment.enrollmentDate ||
+        enrollment.EnrollmentDate ||
+        enrollment.date ||
+        enrollment.Date;
+      const recordDate = recordDateRaw ? new Date(recordDateRaw) : new Date();
+
+      if (recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
+        // 2. Kayıttaki kurs ismini al
+        const enrolledCourseTitle = enrollment.courseTitle || enrollment.CourseTitle || "";
+
+        // 3. Bu ismi Kurslar veritabanında ara
+        const matchedCourse = dbCourses.find((c) => {
+          const courseTitle = c.title || c.Title || "";
+          // Büyük/küçük harf duyarlılığını ortadan kaldırarak eşleştir (örn: "java" == "Java")
+          return courseTitle.toLowerCase().trim() === enrolledCourseTitle.toLowerCase().trim();
+        });
+
+        // 4. Eşleşme varsa fiyatı al ve topla
+        if (matchedCourse) {
+          // Örn: "₺499.99" -> 499.99
+          const priceString = String(matchedCourse.price || matchedCourse.Price || "0");
+          // Sadece rakamları ve noktayı (küsürat için) tutan bir Regex kullanıyoruz
+          const numericPrice = parseFloat(priceString.replace(/[^\d.]/g, "")) || 0;
+
+          total += numericPrice;
+        }
+      }
     });
 
-    if (total >= 1000) {
-      return `₺${(total / 1000).toFixed(1)}K`;
+    // 5. Toplam ciro üzerinden platform komisyonunu (%10) alıyoruz
+    const adminRevenue = total * 0.1;
+
+    // 6. Ekrana yazdırılacak formatı ayarlıyoruz
+    if (adminRevenue >= 1000) {
+      return `₺${(adminRevenue / 1000).toFixed(1)}K`;
     }
-    return `₺${total}`;
+    return `₺${adminRevenue.toFixed(0)}`;
   };
 
   const dynamicRevenue = calculateTotalRevenue();

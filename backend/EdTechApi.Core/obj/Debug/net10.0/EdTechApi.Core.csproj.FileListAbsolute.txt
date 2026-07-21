@@ -20,3 +20,15 @@ C:\Users\Cengiz\stajkod\w4\backend\EdTechApi.Core\obj\Debug\net10.0\EdTechApi.Co
 C:\Users\Cengiz\stajkod\w4\backend\EdTechApi.Core\obj\Debug\net10.0\refint\EdTechApi.Core.dll
 C:\Users\Cengiz\stajkod\w4\backend\EdTechApi.Core\obj\Debug\net10.0\EdTechApi.Core.pdb
 C:\Users\Cengiz\stajkod\w4\backend\EdTechApi.Core\obj\Debug\net10.0\ref\EdTechApi.Core.dll
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\bin\Debug\net10.0\EdTechApi.Core.deps.json
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\bin\Debug\net10.0\EdTechApi.Core.dll
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\bin\Debug\net10.0\EdTechApi.Core.pdb
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\obj\Debug\net10.0\EdTechApi.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\obj\Debug\net10.0\EdTechApi.Core.AssemblyInfoInputs.cache
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\obj\Debug\net10.0\EdTechApi.Core.AssemblyInfo.cs
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\obj\Debug\net10.0\EdTechApi.Core.csproj.CoreCompileInputs.cache
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\obj\Debug\net10.0\EdTechApi.Core.sourcelink.json
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\obj\Debug\net10.0\EdTechApi.Core.dll
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\obj\Debug\net10.0\refint\EdTechApi.Core.dll
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\obj\Debug\net10.0\EdTechApi.Core.pdb
+C:\Users\Cengiz\stajkod\e-kurs-projesi\backend\EdTechApi.Core\obj\Debug\net10.0\ref\EdTechApi.Core.dll

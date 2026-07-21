@@ -166,8 +166,25 @@ function StudentsPage() {
     const firstName = nameParts.join(" ");
 
     const yearPrefix = new Date().getFullYear().toString().slice(-2);
-    const nextSequence = String(dbStudents.length + 1).padStart(7, "0");
+
+    // --- YENİ EKLENEN KISIM: En büyük numarayı bularak çakışmaları önlüyoruz ---
+    let maxSequence = 0;
+    dbStudents.forEach((s) => {
+      const numStr = s.studentNumber || s.StudentNumber || "";
+      // Eğer numara mevcut yılın prefixi (örn: "26") ile başlıyorsa
+      if (numStr.startsWith(yearPrefix)) {
+        // "26" kısmını atıp kalan numarayı sayıya çevir
+        const seq = parseInt(numStr.slice(2), 10);
+        if (!isNaN(seq) && seq > maxSequence) {
+          maxSequence = seq;
+        }
+      }
+    });
+
+    // En büyük numaranın bir fazlasını al (Eğer liste boşsa 1 olur)
+    const nextSequence = String(maxSequence + 1).padStart(7, "0");
     const logicalStudentNumber = `${yearPrefix}${nextSequence}`;
+    // -------------------------------------------------------------------------
 
     try {
       const token = localStorage.getItem("jwt_token");
@@ -195,6 +212,7 @@ function StudentsPage() {
         fetchStudents();
       } else {
         const errorData = await response.text();
+        // Hatanın detayını tarayıcı konsoluna yazdırıyoruz
         console.error("Backend hatası:", errorData);
         showToast("Kayıt başarısız! Bilgileri kontrol edin.", "error");
       }
@@ -245,7 +263,7 @@ function StudentsPage() {
                   Öğrenci
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
-                  Kayıtlı Kurs
+                  E-Posta
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
                   Kayıt Tarihi
@@ -281,7 +299,7 @@ function StudentsPage() {
                     `${s.firstName || s.FirstName || ""} ${s.lastName || s.LastName || ""}`.trim() ||
                     "İsimsiz Öğrenci";
                   const email = s.email || s.Email || "-";
-                  const status = s.status || s.Status || "AKTİF";
+
                   const initials = s.initials || fullName.slice(0, 2).toUpperCase();
 
                   // 1. Öğrenci ile kayıtları eşleştir
@@ -300,6 +318,9 @@ function StudentsPage() {
                       (enrNumber && studentNumber && enrNumber === studentNumber)
                     );
                   });
+
+                  // YENİ EKLENEN KISIM: Eğer öğrencinin kurs kaydı varsa AKTİF, yoksa PASİF yapıyoruz
+                  const calculatedStatus = studentEnrollments.length > 0 ? "AKTİF" : "PASİF";
 
                   // 2. Kurs ve Tarih bilgilerini hesapla
                   let displayCourse = "-";
@@ -328,12 +349,7 @@ function StudentsPage() {
                   const course =
                     displayCourse !== "-" ? displayCourse : s.course || s.Course || "-";
                   const dateRaw = s.date || s.Date;
-                  const date =
-                    displayDate !== "-"
-                      ? displayDate
-                      : dateRaw
-                        ? new Date(dateRaw).toLocaleDateString("tr-TR")
-                        : "-";
+                  const date = dateRaw ? new Date(dateRaw).toLocaleDateString("tr-TR") : "-";
 
                   return (
                     <tr
@@ -347,17 +363,25 @@ function StudentsPage() {
                           </div>
                           <div>
                             <div className="font-semibold">{fullName}</div>
-                            <div className="text-xs text-muted-foreground">{email}</div>
+                            {/* Email değişkeni yerine doğrudan öğrenci numarasını çağırıyoruz */}
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {s.studentNumber || s.StudentNumber || "-"}
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-muted-foreground">{course}</td>
+                      {/* course değişkeni yerine email değişkenini çağırıyoruz */}
+                      <td className="px-6 py-4 text-muted-foreground">{email}</td>
                       <td className="px-6 py-4 text-xs font-mono text-muted-foreground">{date}</td>
                       <td className="px-6 py-4 text-right">
                         <span
-                          className={`px-2 py-1 text-[10px] font-bold rounded-sm ${statusStyles[status] || "bg-emerald-500/10 text-emerald-600"}`}
+                          className={`px-2 py-1 text-[10px] font-bold rounded-sm ${
+                            calculatedStatus === "AKTİF"
+                              ? "bg-emerald-500/10 text-emerald-600"
+                              : "bg-stone-500/10 text-stone-500"
+                          }`}
                         >
-                          {status}
+                          {calculatedStatus}
                         </span>
                       </td>
                       {/* YENİ EKLENECEK SÜTUN: Silme Butonu */}

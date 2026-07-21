@@ -18,8 +18,10 @@ namespace EdTechApi.DataAccess.Context
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Eğer daha önce Enrollment için yazdığın kurallar varsa, onların ALTINA şunu ekle:
-            
+            // 1. Öğrenci numarasının benzersiz (Unique) olması kuralı:
+             modelBuilder.Entity<Student>()
+               .HasIndex(s => s.StudentNumber)
+                .IsUnique();
             // Test edebilmen için veritabanı oluşurken otomatik bir kullanıcı ekliyoruz
             modelBuilder.Entity<User>().HasData(
                 new User { Id = 1, Username = "admin", Password = "password123" }

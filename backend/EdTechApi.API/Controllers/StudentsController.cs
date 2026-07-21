@@ -1,6 +1,7 @@
 using EdTechApi.Business.Interfaces;
 using EdTechApi.Core.Entities;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Threading.Tasks;
 
 namespace EdTechApi.API.Controllers
@@ -37,8 +38,16 @@ namespace EdTechApi.API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateStudent([FromBody] Student newStudent)
         {
-            await _studentService.AddStudentAsync(newStudent);
-            return CreatedAtAction(nameof(GetById), new { id = newStudent.Id }, newStudent);
+            try
+            {
+                await _studentService.AddStudentAsync(newStudent);
+                return CreatedAtAction(nameof(GetById), new { id = newStudent.Id }, newStudent);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Servisten gelen benzersizlik hatasını yakalayıp arayüze iletiyoruz
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpDelete("{id}")]

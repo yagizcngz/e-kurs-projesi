@@ -29,6 +29,15 @@ namespace EdTechApi.Business.Services
 
         public async Task AddStudentAsync(Student student)
         {
+            // Aynı öğrenci numarasına sahip kayıt var mı kontrolü
+            bool isNumberExist = await _context.Students.AnyAsync(s => s.StudentNumber == student.StudentNumber);
+            
+            if (isNumberExist)
+            {
+                // Varsa bir istisna (exception) fırlatıyoruz, bunu Controller yakalayacak
+                throw new InvalidOperationException("Bu öğrenci numarası sistemde zaten kayıtlı. Lütfen farklı bir numara giriniz.");
+            }
+
             await _context.Students.AddAsync(student);
             await _context.SaveChangesAsync();
         }
