@@ -3,7 +3,7 @@ import { Plus, X, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-export const Route = createFileRoute("/kayitlar")({
+export const Route = createFileRoute("/_authenticated/kayitlar")({
   head: () => ({
     meta: [
       { title: "Kayıt Yönetimi — E-Kurs" },

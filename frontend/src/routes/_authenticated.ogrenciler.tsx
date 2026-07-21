@@ -4,7 +4,7 @@ import { Plus, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { statusStyles } from "../lib/mock-data";
 
-export const Route = createFileRoute("/ogrenciler")({
+export const Route = createFileRoute("/_authenticated/ogrenciler")({
   component: StudentsPage,
 });
 
@@ -236,7 +236,7 @@ function StudentsPage() {
   return (
     <>
       <PageHeader
-        crumb="/ ogrenciler / lİste"
+        crumb="/ ogrenciler "
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         action={

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader, SectionHeader } from "../components/PageHeader";
 import { useState, useEffect } from "react";
 
-export const Route = createFileRoute("/raporlar")({
+export const Route = createFileRoute("/_authenticated/raporlar")({
   head: () => ({
     meta: [
       { title: "Raporlar — E-Kurs" },

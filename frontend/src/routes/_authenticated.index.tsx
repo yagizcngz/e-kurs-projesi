@@ -3,7 +3,7 @@ import { PageHeader, SectionHeader } from "../components/PageHeader";
 import { useState, useEffect } from "react";
 import { statusStyles } from "../lib/mock-data";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   component: DashboardPage,
 });
 
@@ -202,62 +202,108 @@ function DashboardPage() {
 
   const displayedPopularCourses = sortedPopularCourses.slice(0, showAllPopular ? 10 : 3);
 
-  const calculateTotalRevenue = () => {
-    let total = 0;
+  // --- DİNAMİK KPI (BÜYÜME) HESAPLAMALARI ---
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
 
-    // Şu anki tarihi alıyoruz (Aylık gelir hesaplamak için)
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+  // Geçen ayın tarihini hesapla
+  let lastMonth = currentMonth - 1;
+  let lastMonthYear = currentYear;
+  if (lastMonth < 0) {
+    lastMonth = 11;
+    lastMonthYear -= 1;
+  }
 
-    dbEnrollments.forEach((enrollment) => {
-      // 1. Önce bu kaydın BU AY içinde yapılıp yapılmadığını kontrol et
-      const recordDateRaw =
-        enrollment.enrollmentDate ||
-        enrollment.EnrollmentDate ||
-        enrollment.date ||
-        enrollment.Date;
-      const recordDate = recordDateRaw ? new Date(recordDateRaw) : new Date();
+  // 30 ve 60 gün öncesinin sınırları
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
-      if (recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
-        // 2. Kayıttaki kurs ismini al
-        const enrolledCourseTitle = enrollment.courseTitle || enrollment.CourseTitle || "";
-
-        // 3. Bu ismi Kurslar veritabanında ara
-        const matchedCourse = dbCourses.find((c) => {
-          const courseTitle = c.title || c.Title || "";
-          // Büyük/küçük harf duyarlılığını ortadan kaldırarak eşleştir (örn: "java" == "Java")
-          return courseTitle.toLowerCase().trim() === enrolledCourseTitle.toLowerCase().trim();
-        });
-
-        // 4. Eşleşme varsa fiyatı al ve topla
-        if (matchedCourse) {
-          // Örn: "₺499.99" -> 499.99
-          const priceString = String(matchedCourse.price || matchedCourse.Price || "0");
-          // Sadece rakamları ve noktayı (küsürat için) tutan bir Regex kullanıyoruz
-          const numericPrice = parseFloat(priceString.replace(/[^\d.]/g, "")) || 0;
-
-          total += numericPrice;
-        }
-      }
-    });
-
-    // 5. Toplam ciro üzerinden platform komisyonunu (%10) alıyoruz
-    const adminRevenue = total * 0.1;
-
-    // 6. Ekrana yazdırılacak formatı ayarlıyoruz
-    if (adminRevenue >= 1000) {
-      return `₺${(adminRevenue / 1000).toFixed(1)}K`;
+  // 1. TOPLAM ÖĞRENCİ BÜYÜMESİ (Geçen aya göre % artış)
+  let studentsThisMonth = 0;
+  let studentsBeforeThisMonth = 0;
+  dbStudents.forEach((s) => {
+    const dRaw = s.date || s.Date;
+    const d = dRaw ? new Date(dRaw) : new Date();
+    if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+      studentsThisMonth++;
+    } else if (d < new Date(currentYear, currentMonth, 1)) {
+      studentsBeforeThisMonth++;
     }
-    return `₺${adminRevenue.toFixed(0)}`;
-  };
+  });
+  // Eğer geçmişte hiç öğrenci yoksa büyüme %100'dür (ilk ay), aksi halde orantı kurulur.
+  const studentGrowth =
+    studentsBeforeThisMonth === 0
+      ? studentsThisMonth > 0
+        ? 100
+        : 0
+      : (studentsThisMonth / studentsBeforeThisMonth) * 100;
 
-  const dynamicRevenue = calculateTotalRevenue();
+  // 2. YENİ KAYITLAR (Son 30 Gün vs Önceki 30 Gün ivmesi)
+  let enrollmentsLast30 = 0;
+  let enrollmentsPrev30 = 0;
+  dbEnrollments.forEach((e) => {
+    const dRaw = e.enrollmentDate || e.EnrollmentDate || e.date || e.Date;
+    const d = dRaw ? new Date(dRaw) : new Date();
+    if (d >= thirtyDaysAgo) {
+      enrollmentsLast30++;
+    } else if (d >= sixtyDaysAgo && d < thirtyDaysAgo) {
+      enrollmentsPrev30++;
+    }
+  });
+  const enrollmentGrowth =
+    enrollmentsPrev30 === 0
+      ? enrollmentsLast30 > 0
+        ? 100
+        : 0
+      : ((enrollmentsLast30 - enrollmentsPrev30) / enrollmentsPrev30) * 100;
+
+  // 3. AYLIK GELİR VE GELİR BÜYÜMESİ (Sadece aktif aya ait gelirler)
+  let revThisMonth = 0;
+  let revLastMonth = 0;
+  dbEnrollments.forEach((e) => {
+    const dRaw = e.enrollmentDate || e.EnrollmentDate || e.date || e.Date;
+    const d = dRaw ? new Date(dRaw) : new Date();
+    const isThisMonth = d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    const isLastMonth = d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
+
+    if (isThisMonth || isLastMonth) {
+      const enrolledCourseTitle = e.courseTitle || e.CourseTitle || "";
+      const matchedCourse = dbCourses.find((c) => {
+        const courseTitle = c.title || c.Title || "";
+        return courseTitle.toLowerCase().trim() === enrolledCourseTitle.toLowerCase().trim();
+      });
+
+      if (matchedCourse) {
+        const priceString = String(matchedCourse.price || matchedCourse.Price || "0");
+        const numericPrice = parseFloat(priceString.replace(/[^\d.]/g, "")) || 0;
+        if (isThisMonth) revThisMonth += numericPrice;
+        if (isLastMonth) revLastMonth += numericPrice;
+      }
+    }
+  });
+
+  // Gelirlerin Admin Komisyonu (%10)
+  const adminRevThisMonth = revThisMonth * 0.1;
+  const adminRevLastMonth = revLastMonth * 0.1;
+  const revenueGrowth =
+    adminRevLastMonth === 0
+      ? adminRevThisMonth > 0
+        ? 100
+        : 0
+      : ((adminRevThisMonth - adminRevLastMonth) / adminRevLastMonth) * 100;
+
+  // Parayı düzgün formatlama
+  const formatMoney = (val: number) => {
+    if (val >= 1000) return `₺${(val / 1000).toFixed(1)}K`;
+    return `₺${val.toFixed(0)}`;
+  };
+  const dynamicRevenue = formatMoney(adminRevThisMonth);
 
   return (
     <>
       <PageHeader
-        crumb="/ dashboard / genel_bakis"
+        crumb="/ kontrol paneli "
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
       />
@@ -267,8 +313,8 @@ function DashboardPage() {
           <KpiCard
             label="Toplam Öğrenci"
             value={dbStudents.length}
-            hint="+12% bu ay"
-            hintTone="up"
+            hint={`${studentGrowth > 0 ? "+" : ""}${studentGrowth.toFixed(1)}% geçen aya göre`}
+            hintTone={studentGrowth >= 0 ? "up" : "warn"}
           />
           <KpiCard
             label="Aktif Kurslar"
@@ -278,15 +324,17 @@ function DashboardPage() {
           />
           <KpiCard
             label="Yeni Kayıtlar"
-            value={dbEnrollments.length || dbStudents.length}
-            hint="Son 30 gün"
-            hintTone="warn"
+            // Gerçekten son 30 gün içindeki kayıt sayısını ekrana basıyoruz
+            value={enrollmentsLast30}
+            hint={`${enrollmentGrowth > 0 ? "+" : ""}${enrollmentGrowth.toFixed(1)}% önceki 30 güne göre`}
+            hintTone={enrollmentGrowth >= 0 ? "up" : "warn"}
           />
           <KpiCard
             label="Aylık Gelir"
             value={dynamicRevenue}
-            hint="Kurs satışlarına göre"
-            hintTone="up"
+            // Geçen ayın ciro verisine oranla ne durumda olduğunu basıyoruz
+            hint={`${revenueGrowth > 0 ? "+" : ""}${revenueGrowth.toFixed(1)}% geçen aya göre`}
+            hintTone={revenueGrowth >= 0 ? "up" : "warn"}
           />
         </div>
 
@@ -340,7 +388,6 @@ function DashboardPage() {
                         `${s.firstName || s.FirstName || ""} ${s.lastName || s.LastName || ""}`.trim() ||
                         "İsimsiz Öğrenci";
                       const email = s.email || s.Email || "-";
-                      const status = s.status || s.Status || "AKTİF";
                       const initials = s.initials || fullName.slice(0, 2).toUpperCase();
 
                       // Back-end EnrollmentDto contains StudentFullName / StudentNumber / CourseTitle
@@ -359,6 +406,8 @@ function DashboardPage() {
                           (enrNumber && studentNumber && enrNumber === studentNumber)
                         );
                       });
+                      // YENİ EKLENEN KISIM: Eğer öğrencinin kurs kaydı varsa AKTİF, yoksa PASİF yapıyoruz
+                      const calculatedStatus = studentEnrollments.length > 0 ? "AKTİF" : "PASİF";
 
                       let displayCourse = "-";
                       let displayDate = "-";
@@ -420,9 +469,13 @@ function DashboardPage() {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <span
-                              className={`px-2 py-1 text-[10px] font-bold rounded-sm ${statusStyles[status] || "bg-emerald-500/10 text-emerald-600"}`}
+                              className={`px-2 py-1 text-[10px] font-bold rounded-sm ${
+                                calculatedStatus === "AKTİF"
+                                  ? "bg-emerald-500/10 text-emerald-600"
+                                  : "bg-stone-500/10 text-stone-500"
+                              }`}
                             >
-                              {status}
+                              {calculatedStatus}
                             </span>
                           </td>
                         </tr>

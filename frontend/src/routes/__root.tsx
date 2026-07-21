@@ -7,7 +7,6 @@ import {
   useRouter,
   HeadContent,
   Scripts,
-  redirect, // 1. EKLENEN: Yönlendirme motorunu import ettik
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -77,13 +76,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   // 2. GÜVENLİK KALKANI — sadece tarayıcıda çalışır (SSR sırasında localStorage yok,
   // bu yüzden sayfa yenilenince kullanıcı yanlışlıkla /login'e atılıyordu).
-  beforeLoad: ({ location }) => {
-    if (typeof window === "undefined") return; // SSR: atla
-    const token = window.localStorage.getItem("jwt_token");
-    if (!token && !["/login", "/register"].includes(location.pathname)) {
-      throw redirect({ to: "/login" });
-    }
-  },
+
   head: () => ({
     meta: [
       { charSet: "utf-8" },

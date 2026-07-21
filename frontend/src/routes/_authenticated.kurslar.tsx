@@ -3,7 +3,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Plus, X, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-export const Route = createFileRoute("/kurslar")({
+export const Route = createFileRoute("/_authenticated/kurslar")({
   component: CoursesPage,
 });
 
@@ -288,7 +288,7 @@ function CoursesPage() {
   return (
     <>
       <PageHeader
-        crumb="/ kurslar / lİste"
+        crumb="/ kurslar "
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         action={

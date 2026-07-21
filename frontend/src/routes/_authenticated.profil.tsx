@@ -3,7 +3,7 @@ import { PageHeader, SectionHeader } from "../components/PageHeader";
 import { CheckCircle2, Camera, Edit2, UploadCloud } from "lucide-react";
 import { useEffect, useMemo, useState, useRef } from "react";
 
-export const Route = createFileRoute("/profil")({
+export const Route = createFileRoute("/_authenticated/profil")({
   head: () => ({
     meta: [
       { title: "Profilim — E-Kurs" },

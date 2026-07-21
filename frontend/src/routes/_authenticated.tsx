@@ -1,0 +1,89 @@
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+
+export const Route = createFileRoute("/_authenticated")({
+  component: AuthenticatedLayout,
+});
+
+// JWT'nin ortadaki payload (body) kısmını decode eder
+const parseJwt = (token: string) => {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(""),
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+};
+
+// Token'ın süresinin dolup dolmadığını kontrol eder.
+// JWT'nin "exp" alanı UNIX timestamp'tir (saniye), Date.now() ise milisaniye döner.
+const isTokenExpired = (token: string) => {
+  const payload = parseJwt(token);
+  if (!payload || !payload.exp) return true; // decode edilemiyorsa güvenli tarafta kal
+  const nowInSeconds = Date.now() / 1000;
+  return payload.exp < nowInSeconds;
+};
+
+// Kontrolü tek bir yerden yapıp gerekirse login'e atan yardımcı fonksiyon
+const checkAndHandleExpiry = (navigate: ReturnType<typeof useNavigate>) => {
+  const token = localStorage.getItem("jwt_token");
+
+  if (!token || isTokenExpired(token)) {
+    localStorage.removeItem("jwt_token");
+    localStorage.removeItem("username");
+    navigate({ to: "/login", replace: true });
+    return false;
+  }
+  return true;
+};
+
+function AuthenticatedLayout() {
+  const navigate = useNavigate();
+
+  // "idle" -> henüz kontrol edilmedi (ilk render)
+  // "authed" -> token var ve süresi dolmamış, sayfayı göster
+  // "unauthed" -> token yok veya süresi dolmuş, login'e yönlendiriliyor
+  const [authState, setAuthState] = useState<"idle" | "authed" | "unauthed">("idle");
+
+  useEffect(() => {
+    // GÜVENLİK KALKANI — sadece tarayıcıda çalışır (SSR sırasında localStorage
+    // yok, bu yüzden bu kontrolü beforeLoad'da değil, component mount olduktan
+    // sonra client-side'da yapıyoruz).
+
+    // 1) Layout ilk mount olduğunda hemen kontrol et
+    const stillValid = checkAndHandleExpiry(navigate);
+    setAuthState(stillValid ? "authed" : "unauthed");
+
+    // 2) ÖNEMLİ: _authenticated layout'u, /ogrenciler, /kurslar, /kayitlar gibi
+    // sayfalar arasında sidebar'dan gezinirken yeniden mount OLMUYOR — sadece
+    // Outlet içeriği değişiyor. Bu yüzden tek seferlik kontrol yeterli değil;
+    // token süresi uygulama açıkken dolarsa da yakalamak için periyodik olarak
+    // (her 15 saniyede bir) tekrar kontrol ediyoruz.
+    const intervalId = setInterval(() => {
+      checkAndHandleExpiry(navigate);
+    }, 15_000);
+
+    return () => clearInterval(intervalId);
+  }, [navigate]);
+
+  // Kontrol tamamlanana kadar veya yönlendirme gerçekleşene kadar
+  // korumalı içeriği asla göstermiyoruz.
+  if (authState !== "authed") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground animate-pulse">
+          Yükleniyor...
+        </div>
+      </div>
+    );
+  }
+
+  return <Outlet />;
+}

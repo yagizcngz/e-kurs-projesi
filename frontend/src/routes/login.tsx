@@ -43,7 +43,7 @@ function LoginPage() {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center p-4">
+    <div className="fixed inset-0 z-100 bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl p-8 animate-in fade-in zoom-in-95 duration-300">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-foreground text-background font-bold text-xl mb-4">
