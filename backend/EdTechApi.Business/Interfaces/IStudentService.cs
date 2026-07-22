@@ -13,5 +13,6 @@ namespace EdTechApi.Business.Interfaces
         // ad-soyad mantığıyla aynı yaklaşım kullanılıyor, çünkü User <-> Student arasında henüz bir FK yok)
         Task<Student?> GetStudentByUsernameAsync(string username);
         Task<bool> UpdateStudentProfileAsync(string username, string? aboutMe, string? profilePictureUrl);
+        Task<bool> UpdateStudentAsync(int id, Student updatedStudent);
     }
 }

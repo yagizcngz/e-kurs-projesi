@@ -25,7 +25,6 @@ const parseJwt = (token: string) => {
     );
     return JSON.parse(jsonPayload);
   } catch (e) {
-    // invalid token payload
     return null;
   }
 };
@@ -47,6 +46,11 @@ interface ProfileDto {
   AboutMe?: string;
   profilePictureUrl?: string;
   ProfilePictureUrl?: string;
+  // BACKEND'DEN GELECEK İSİMLER İÇİN GÜVENLİK AĞI (BÜYÜK/KÜÇÜK HARF)
+  firstName?: string;
+  FirstName?: string;
+  lastName?: string;
+  LastName?: string;
 }
 
 function ProfilePage() {
@@ -88,7 +92,6 @@ function ProfilePage() {
     const loadProfile = async () => {
       if (!token) return;
       try {
-        // Tek istek: backend hem öğrenci hem kullanıcı ihtimalini kendi içinde hallediyor
         const res = await fetch("http://localhost:5157/api/profile/me", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -99,6 +102,25 @@ function ProfilePage() {
           const data: ProfileDto = await res.json();
           setPhotoUrl(data.profilePictureUrl || data.ProfilePictureUrl || "");
           setBio(data.aboutMe || data.AboutMe || "");
+
+          // EĞER BACKEND'DEN GERÇEK İSİM GELDİYSE ID'Yİ EZ VE ONU KULLAN
+          const fName = data.firstName || data.FirstName;
+          const lName = data.lastName || data.LastName;
+
+          if (fName && lName) {
+            const fullName = `${fName} ${lName}`;
+            setName(fullName); // Ekrana Yiğit Cengiz yazdırır
+
+            // Sidebar'ın (Sol alt köşenin) da bunu anında duyması için sinyal gönder
+            window.dispatchEvent(
+              new CustomEvent("profile-updated", {
+                detail: {
+                  name: fullName,
+                  photoUrl: data.profilePictureUrl || data.ProfilePictureUrl || "",
+                },
+              }),
+            );
+          }
         }
       } catch (err) {
         console.warn("Profil bilgisi alınamadı:", err);
@@ -153,7 +175,7 @@ function ProfilePage() {
     e.preventDefault();
     const currentUserName = name.trim();
     if (!currentUserName) {
-      showToast("Kullanıcı adı boş olamaz.", "error");
+      showToast("Görünen ad boş olamaz.", "error");
       return;
     }
 
@@ -204,7 +226,6 @@ function ProfilePage() {
         const data = await res.json();
         const fullUrl = `http://localhost:5157${data.url}`;
         setPhotoUrl(fullUrl);
-        // Sidebar'ı anında güncelle (kaydetmeyi bekleme)
         window.dispatchEvent(
           new CustomEvent("profile-updated", { detail: { name, photoUrl: fullUrl } }),
         );
@@ -230,9 +251,8 @@ function ProfilePage() {
       })
       .map((enrollment) => enrollment.courseTitle || enrollment.CourseTitle || "");
 
-    // Sadece API'den gelenleri (matchedEnrollments) döndür
     return [...new Set(matchedEnrollments)];
-  }, [enrollments, name]); // coursesInput bağımlılığını sildik
+  }, [enrollments, name]);
 
   const initials = name
     .split(" ")
@@ -354,7 +374,7 @@ function ProfilePage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Kullanıcı Adı</label>
+                <label className="text-sm font-medium">Görünen Adınız</label>
                 <input
                   type="text"
                   value={name}

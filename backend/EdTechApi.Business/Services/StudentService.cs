@@ -91,5 +91,23 @@ namespace EdTechApi.Business.Services
             await _context.SaveChangesAsync();
             return true;
         }
+            public async Task<bool> UpdateStudentAsync(int id, Student updatedStudent)
+{
+    var student = await _context.Students.FindAsync(id);
+    if (student == null)
+    {
+        return false;
+    }
+
+    student.FirstName = updatedStudent.FirstName;
+    student.LastName = updatedStudent.LastName;
+    student.Email = updatedStudent.Email;
+    student.AboutMe = updatedStudent.AboutMe;
+    student.ProfilePictureUrl = updatedStudent.ProfilePictureUrl;
+    // StudentNumber ve Date'e bilerek dokunmuyoruz — bunlar sabit kalmalı
+
+    await _context.SaveChangesAsync();
+    return true;
+}
     }
 }

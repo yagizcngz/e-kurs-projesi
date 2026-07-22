@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -36,6 +36,8 @@ const parseJwt = (token: string) => {
 interface ProfileMeDto {
   profilePictureUrl?: string;
   ProfilePictureUrl?: string;
+  firstName?: string; // Eklendi
+  lastName?: string; // Eklendi
 }
 
 const menuItems = [
@@ -62,11 +64,20 @@ export function AppSidebar() {
     initials: "K",
   });
 
+  const lastTokenRef = useRef<string | null>(null);
+
   useEffect(() => {
     const token = localStorage.getItem("jwt_token");
     const storedUsername = localStorage.getItem("username");
 
-    let currentName = storedUsername || "username";
+    // Token aynıysa ve sadece sayfa değişiyorsa işlemi durdur (isim ezilmesin)
+    if (token === lastTokenRef.current) {
+      return;
+    }
+
+    lastTokenRef.current = token;
+
+    let currentName = storedUsername || "Kullanıcı";
     let currentRole = "User";
 
     if (token) {
@@ -79,51 +90,56 @@ export function AppSidebar() {
         currentRole = String(rawRole).toLowerCase() === "admin" ? "Admin" : "User";
 
         if (!storedUsername) {
-          currentName =
-            payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ||
-            payload.name ||
-            payload.unique_name ||
-            payload.sub ||
-            currentName;
+          currentName = payload.name || payload.unique_name || payload.sub || currentName;
         }
       }
+
+      const loadProfileData = async () => {
+        try {
+          const res = await fetch("http://localhost:5157/api/profile/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (res.ok) {
+            const data: ProfileMeDto = await res.json();
+            const photo = data.profilePictureUrl || data.ProfilePictureUrl;
+
+            // Backend'den gerçek ad ve soyad geldiyse onu kullan
+            if (data.firstName && data.lastName) {
+              currentName = `${data.firstName} ${data.lastName}`;
+            }
+
+            const initials = currentName
+              .split(" ")
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase();
+            setCurrentUser({
+              name: currentName,
+              role: currentRole,
+              initials,
+              photo: photo || undefined,
+            });
+          }
+        } catch (err) {
+          const initials = currentName
+            .split(" ")
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((n) => n[0])
+            .join("")
+            .toUpperCase();
+          setCurrentUser({ name: currentName, role: currentRole, initials });
+        }
+      };
+
+      loadProfileData();
+    } else {
+      setCurrentUser({ name: "Kullanıcı", role: "User", initials: "K" });
     }
-
-    const initials = currentName
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-
-    setCurrentUser((prev) => ({ ...prev, name: currentName, role: currentRole, initials }));
-  }, [location.pathname]); // İsim/rol sadece token'dan okunuyor (ucuz), sayfa değiştiğinde senkron kalır
-
-  // Profil fotoğrafını sadece BİR KERE (oturum başına, mount'ta) ağdan çekiyoruz — her sayfa
-  // geçişinde tekrar tekrar istek atmak gereksiz yavaşlığa yol açıyordu. Kaydedilince zaten
-  // "profile-updated" event'i anında güncelliyor, tekrar fetch etmeye gerek yok.
-  useEffect(() => {
-    const token = localStorage.getItem("jwt_token");
-    if (!token) return;
-
-    const loadPhoto = async () => {
-      try {
-        const res = await fetch("http://localhost:5157/api/profile/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data: ProfileMeDto = await res.json();
-          const photo = data.profilePictureUrl || data.ProfilePictureUrl;
-          setCurrentUser((prev) => ({ ...prev, photo: photo || undefined }));
-        }
-      } catch (err) {
-        console.warn("Sidebar profil resmi backend'den alınamadı:", err);
-      }
-    };
-
-    loadPhoto();
-  }, []);
+  }, [location.pathname]);
 
   useEffect(() => {
     const onProfileUpdated = (e: Event) => {
@@ -160,7 +176,7 @@ export function AppSidebar() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("jwt_token"); // "token" yerine "jwt_token" olmalı
+    localStorage.removeItem("jwt_token");
     localStorage.removeItem("username");
     localStorage.removeItem("user_profile");
     navigate({ to: "/login" });
@@ -240,8 +256,7 @@ export function AppSidebar() {
                   className={`flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-all ${
                     isActive
                       ? "bg-black text-white dark:bg-white dark:text-black font-medium"
-                      : // Hover rengini ana menüdekiyle uyumlu hale getirdik:
-                        "text-sidebar-foreground hover:bg-neutral-900/5 hover:text-neutral-900 dark:hover:bg-white/5 dark:hover:text-white"
+                      : "text-sidebar-foreground hover:bg-neutral-900/5 hover:text-neutral-900 dark:hover:bg-white/5 dark:hover:text-white"
                   }`}
                 >
                   <Icon className="h-4 w-4" />

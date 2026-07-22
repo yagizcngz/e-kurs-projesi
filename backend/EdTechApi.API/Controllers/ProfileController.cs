@@ -8,9 +8,6 @@ using System.Security.Claims;
 
 namespace EdTechApi.API.Controllers
 {
-    // /api/students/me ve /api/auth/me'yi ayrı ayrı, sırayla çağırmak yerine (iki round-trip,
-    // biri her zaman 404 dönen) TEK bir istekte "önce öğrenci mi, değilse kullanıcı mı" mantığını
-    // burada, backend içinde hallediyoruz. /profil sayfası ve AppSidebar artık sadece bunu çağırıyor.
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -31,7 +28,11 @@ namespace EdTechApi.API.Controllers
             var username = GetCurrentUsername();
             if (string.IsNullOrEmpty(username)) return Unauthorized();
 
-            var student = await _studentService.GetStudentByUsernameAsync(username);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null) return NotFound();
+
+            var student = await _context.Students.FirstOrDefaultAsync(s => s.UserId == user.Id);
+
             if (student != null)
             {
                 return Ok(new
@@ -39,17 +40,18 @@ namespace EdTechApi.API.Controllers
                     source = "student",
                     aboutMe = student.AboutMe,
                     profilePictureUrl = student.ProfilePictureUrl,
+                    firstName = student.FirstName, // GERÇEK AD EKLENDİ
+                    lastName = student.LastName    // GERÇEK SOYAD EKLENDİ
                 });
             }
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
-            if (user == null) return NotFound();
 
             return Ok(new
             {
                 source = "user",
                 aboutMe = user.AboutMe,
                 profilePictureUrl = user.ProfilePictureUrl,
+                firstName = "",
+                lastName = ""
             });
         }
 
@@ -59,22 +61,30 @@ namespace EdTechApi.API.Controllers
             var username = GetCurrentUsername();
             if (string.IsNullOrEmpty(username)) return Unauthorized();
 
-            var studentUpdated = await _studentService.UpdateStudentProfileAsync(
-                username, request.AboutMe, request.ProfilePictureUrl);
-
-            if (studentUpdated)
-            {
-                return Ok(new { message = "Profil güncellendi.", source = "student" });
-            }
-
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user == null) return NotFound("Bu hesaba karşılık gelen bir kayıt bulunamadı.");
 
-            user.AboutMe = request.AboutMe;
-            user.ProfilePictureUrl = request.ProfilePictureUrl;
-            await _context.SaveChangesAsync();
+            var student = await _context.Students.FirstOrDefaultAsync(s => s.UserId == user.Id);
 
-            return Ok(new { message = "Profil güncellendi.", source = "user" });
+            if (student != null)
+            {
+                student.AboutMe = request.AboutMe;
+                student.ProfilePictureUrl = request.ProfilePictureUrl;
+
+                user.AboutMe = request.AboutMe;
+                user.ProfilePictureUrl = request.ProfilePictureUrl;
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Öğrenci profili başarıyla güncellendi.", source = "student" });
+            }
+            else
+            {
+                user.AboutMe = request.AboutMe;
+                user.ProfilePictureUrl = request.ProfilePictureUrl;
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Kullanıcı profili başarıyla güncellendi.", source = "user" });
+            }
         }
 
         private string? GetCurrentUsername()

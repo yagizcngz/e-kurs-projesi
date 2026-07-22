@@ -96,6 +96,18 @@ namespace EdTechApi.API.Controllers
                 return BadRequest(ex.Message);
             }
         }
+        
+        [Authorize(Roles = "Admin")]
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateStudent(int id, [FromBody] Student updatedStudent)
+        {
+            var success = await _studentService.UpdateStudentAsync(id, updatedStudent);
+            if (!success)
+            {
+                return NotFound("Öğrenci bulunamadı.");
+            }
+            return NoContent();
+        }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteStudent(int id)

@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System;
 
 namespace EdTechApi.API.Controllers
 {
@@ -24,7 +25,7 @@ namespace EdTechApi.API.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] LoginRequest request)
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request) // Model RegisterRequest olarak güncellendi
         {
             var userExists = await _context.Users.AnyAsync(u => u.Username == request.Username);
             if (userExists)
@@ -34,6 +35,7 @@ namespace EdTechApi.API.Controllers
             // Gerçek projede bu kısımlar Seed Data ile atılır.
             string assignedRole = request.Username == "superadmin" ? "Admin" : "User";
 
+            // 1. Önce Kullanıcı (User) Hesabını Oluştur
             var newUser = new User
             {
                 Username = request.Username,
@@ -43,6 +45,23 @@ namespace EdTechApi.API.Controllers
 
             await _context.Users.AddAsync(newUser);
             await _context.SaveChangesAsync();
+
+            // 2. Eğer rolü 'User' ise anında bir Öğrenci (Student) profili oluştur ve UserId ile bağla
+            if (assignedRole == "User")
+            {
+                var newStudent = new Student
+                {
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    StudentNumber = "OGR-" + newUser.Id.ToString().PadLeft(4, '0'), // Örn: OGR-0015
+                    Email = request.Username + "@ekurs.com", // Otomatik geçici e-posta
+                    Date = DateTime.Now,
+                    UserId = newUser.Id // EŞLEŞTİRME BURADA YAPILIYOR
+                };
+
+                await _context.Students.AddAsync(newStudent);
+                await _context.SaveChangesAsync();
+            }
 
             return Ok(new { message = $"Kullanıcı başarıyla oluşturuldu." });
         }
@@ -145,5 +164,14 @@ namespace EdTechApi.API.Controllers
     {
         public string? AboutMe { get; set; }
         public string? ProfilePictureUrl { get; set; }
+    }
+
+    // YENİ EKLENEN MODEL
+    public class RegisterRequest
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
     }
 }

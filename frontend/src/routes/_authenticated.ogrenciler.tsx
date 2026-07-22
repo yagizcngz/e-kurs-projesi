@@ -1,6 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "../components/PageHeader";
-import { Plus, X, CheckCircle2, AlertCircle, Edit2, Trash2, Camera } from "lucide-react";
+import {
+  Plus,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Edit2,
+  Trash2,
+  Camera,
+  Upload,
+  Link2,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/_authenticated/ogrenciler")({
@@ -69,6 +79,16 @@ function StudentsPage() {
   // PROFİL GÖRÜNTÜLEME İÇİN STATE
   const [selectedProfileStudent, setSelectedProfileStudent] = useState<StudentData | null>(null);
 
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editAboutMe, setEditAboutMe] = useState("");
+  const [editProfilePictureUrl, setEditProfilePictureUrl] = useState("");
+  const [profileImageMode, setProfileImageMode] = useState<"upload" | "link">("upload");
+  const [isUploadingProfileImage, setIsUploadingProfileImage] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
@@ -121,6 +141,10 @@ function StudentsPage() {
 
     fetchEnrollments();
   }, []);
+
+  useEffect(() => {
+    setIsEditingProfile(false);
+  }, [selectedProfileStudent?.id ?? selectedProfileStudent?.Id]);
 
   const toggleEditMode = () => {
     setIsEditMode(!isEditMode);
@@ -273,6 +297,125 @@ function StudentsPage() {
         (enrNumber && studentNumber && enrNumber === studentNumber)
       );
     });
+  };
+
+  const handleStartEditProfile = () => {
+    if (!selectedProfileStudent) return;
+    setEditFirstName(selectedProfileStudent.firstName || selectedProfileStudent.FirstName || "");
+    setEditLastName(selectedProfileStudent.lastName || selectedProfileStudent.LastName || "");
+    setEditEmail(selectedProfileStudent.email || selectedProfileStudent.Email || "");
+    setEditAboutMe(selectedProfileStudent.aboutMe || selectedProfileStudent.AboutMe || "");
+    setEditProfilePictureUrl(
+      selectedProfileStudent.profilePictureUrl || selectedProfileStudent.ProfilePictureUrl || "",
+    );
+    setProfileImageMode("upload");
+    setIsEditingProfile(true);
+  };
+
+  const handleCancelEditProfile = () => setIsEditingProfile(false);
+
+  const handleProfileFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingProfileImage(true);
+    try {
+      const token = localStorage.getItem("jwt_token");
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("http://localhost:5157/api/uploads/profile-picture", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setEditProfilePictureUrl(`http://localhost:5157${data.url}`);
+      } else {
+        showToast("Fotoğraf yüklenemedi. Lütfen tekrar deneyin.", "error");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Sunucuya ulaşılamıyor.", "error");
+    } finally {
+      setIsUploadingProfileImage(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveProfileImage = () => setEditProfilePictureUrl("");
+
+  const handleSaveStudentEdit = async () => {
+    if (!selectedProfileStudent) return;
+    const studentId = selectedProfileStudent.id ?? selectedProfileStudent.Id;
+    if (!studentId) {
+      showToast("Öğrenci kimliği bulunamadı.", "error");
+      return;
+    }
+    if (!editFirstName.trim() || !editLastName.trim()) {
+      showToast("Ad ve soyad boş olamaz.", "error");
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      const token = localStorage.getItem("jwt_token");
+      // handleSaveStudentEdit fonksiyonu içindeki fetch isteğini bu şekilde güncelleyin:
+
+      const response = await fetch(`http://localhost:5157/api/students/${studentId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          Id: studentId, // Eksik olan Id eklendi
+          FirstName: editFirstName,
+          LastName: editLastName,
+          Email: editEmail,
+          AboutMe: editAboutMe,
+          ProfilePictureUrl: editProfilePictureUrl,
+          // Backend'de zorunlu (required) olma ihtimaline karşı mevcut değerleri de gönderiyoruz:
+          StudentNumber:
+            selectedProfileStudent.studentNumber || selectedProfileStudent.StudentNumber,
+          Status: selectedProfileStudent.status || selectedProfileStudent.Status,
+          Date: selectedProfileStudent.date || selectedProfileStudent.Date,
+        }),
+      });
+
+      if (response.ok) {
+        const updatedStudent: StudentData = {
+          ...selectedProfileStudent,
+          firstName: editFirstName,
+          FirstName: editFirstName,
+          lastName: editLastName,
+          LastName: editLastName,
+          email: editEmail,
+          Email: editEmail,
+          aboutMe: editAboutMe,
+          AboutMe: editAboutMe,
+          profilePictureUrl: editProfilePictureUrl,
+          ProfilePictureUrl: editProfilePictureUrl,
+        };
+        setSelectedProfileStudent(updatedStudent);
+        setDbStudents((prev) =>
+          prev.map((s) => ((s.id ?? s.Id) === studentId ? updatedStudent : s)),
+        );
+        setIsEditingProfile(false);
+        showToast("Öğrenci başarıyla güncellendi.");
+      } else {
+        const errorText = await response.text();
+        console.error("Öğrenci güncellenirken hata:", errorText);
+        showToast("Öğrenci güncellenirken bir hata oluştu.", "error");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Sunucuya ulaşılamıyor.", "error");
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   return (
@@ -473,77 +616,229 @@ function StudentsPage() {
               <X className="size-5" />
             </button>
 
-            {/* Avatar Alanı */}
-            <div className="relative mb-4 mt-2">
-              {selectedProfileStudent.profilePictureUrl ||
-              selectedProfileStudent.ProfilePictureUrl ? (
-                <img
-                  src={
-                    selectedProfileStudent.profilePictureUrl ||
-                    selectedProfileStudent.ProfilePictureUrl
-                  }
-                  alt="Profil"
-                  className="size-24 rounded-full object-cover shadow-md border border-border"
-                />
-              ) : (
-                <div className="size-24 rounded-full bg-linear-to-tr from-stone-800 to-stone-600 text-white flex items-center justify-center text-3xl font-mono uppercase shadow-md">
-                  {(
-                    selectedProfileStudent.name ||
-                    `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`
-                  )
-                    .trim()
-                    .slice(0, 2)
-                    .toUpperCase()}
+            {!isEditingProfile && (
+              <button
+                onClick={handleStartEditProfile}
+                className="absolute top-4 right-14 flex items-center gap-1.5 text-xs font-bold border border-border rounded-md px-3 py-1.5 hover:bg-foreground/5 transition-colors"
+              >
+                <Edit2 className="size-3.5" />
+                Düzenle
+              </button>
+            )}
+
+            {isEditingProfile ? (
+              <div className="w-full space-y-4">
+                <h2 className="text-lg font-bold text-center mb-2">Öğrenciyi Düzenle</h2>
+
+                <div className="flex flex-col items-center gap-3">
+                  {editProfilePictureUrl ? (
+                    <img
+                      src={
+                        editProfilePictureUrl.startsWith("http") ||
+                        editProfilePictureUrl.startsWith("data:")
+                          ? editProfilePictureUrl
+                          : `http://localhost:5157${editProfilePictureUrl}`
+                      }
+                      alt="Önizleme"
+                      className="size-20 rounded-full object-cover border border-border"
+                    />
+                  ) : (
+                    <div className="size-20 rounded-full bg-linear-to-tr from-stone-800 to-stone-600 text-white flex items-center justify-center text-2xl font-mono uppercase">
+                      {`${editFirstName || ""} ${editLastName || ""}`
+                        .trim()
+                        .slice(0, 2)
+                        .toUpperCase() || "?"}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 w-full">
+                    <button
+                      type="button"
+                      onClick={() => setProfileImageMode("upload")}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-md border transition-colors ${
+                        profileImageMode === "upload"
+                          ? "border-foreground bg-foreground/5"
+                          : "border-border hover:bg-foreground/5"
+                      }`}
+                    >
+                      <Upload className="size-3.5" />
+                      Dosya Yükle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProfileImageMode("link")}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-md border transition-colors ${
+                        profileImageMode === "link"
+                          ? "border-foreground bg-foreground/5"
+                          : "border-border hover:bg-foreground/5"
+                      }`}
+                    >
+                      <Link2 className="size-3.5" />
+                      Link Yapıştır
+                    </button>
+                  </div>
+
+                  {profileImageMode === "upload" ? (
+                    <label className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold border border-dashed border-border rounded-md cursor-pointer hover:bg-foreground/5 transition-colors">
+                      {isUploadingProfileImage ? "Yükleniyor..." : "Bilgisayardan seç"}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        className="hidden"
+                        disabled={isUploadingProfileImage}
+                        onChange={handleProfileFileChange}
+                      />
+                    </label>
+                  ) : (
+                    <input
+                      type="text"
+                      value={editProfilePictureUrl}
+                      onChange={(e) => setEditProfilePictureUrl(e.target.value)}
+                      placeholder="https://ornek.com/fotograf.jpg"
+                      className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                    />
+                  )}
+
+                  {editProfilePictureUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveProfileImage}
+                      className="text-[11px] font-mono text-muted-foreground hover:text-red-600 transition-colors"
+                    >
+                      Fotoğrafı kaldır
+                    </button>
+                  )}
                 </div>
-              )}
-              <div className="absolute bottom-0 right-0 bg-foreground text-background p-1.5 rounded-full border-2 border-card shadow-sm cursor-pointer hover:scale-105 transition-transform">
-                <Camera className="size-4" />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Ad</label>
+                    <input
+                      type="text"
+                      value={editFirstName}
+                      onChange={(e) => setEditFirstName(e.target.value)}
+                      className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Soyad</label>
+                    <input
+                      type="text"
+                      value={editLastName}
+                      onChange={(e) => setEditLastName(e.target.value)}
+                      className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">E-posta</label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Kendim Hakkında</label>
+                  <textarea
+                    rows={3}
+                    value={editAboutMe}
+                    onChange={(e) => setEditAboutMe(e.target.value)}
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCancelEditProfile}
+                    disabled={isSavingProfile}
+                    className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors disabled:opacity-60"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveStudentEdit}
+                    disabled={isSavingProfile || isUploadingProfileImage}
+                    className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity disabled:opacity-60"
+                  >
+                    {isSavingProfile ? "Kaydediliyor..." : "Kaydet"}
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="relative mb-4 mt-2">
+                  {selectedProfileStudent.profilePictureUrl ||
+                  selectedProfileStudent.ProfilePictureUrl ? (
+                    <img
+                      src={
+                        selectedProfileStudent.profilePictureUrl ||
+                        selectedProfileStudent.ProfilePictureUrl
+                      }
+                      alt="Profil"
+                      className="size-24 rounded-full object-cover shadow-md border border-border"
+                    />
+                  ) : (
+                    <div className="size-24 rounded-full bg-linear-to-tr from-stone-800 to-stone-600 text-white flex items-center justify-center text-3xl font-mono uppercase shadow-md">
+                      {(
+                        selectedProfileStudent.name ||
+                        `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`
+                      )
+                        .trim()
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </div>
+                  )}
+                </div>
 
-            {/* İsim ve Rol */}
-            <h2 className="text-xl font-bold text-foreground mb-1 text-center">
-              {selectedProfileStudent.name ||
-                `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`.trim() ||
-                "İsimsiz Öğrenci"}
-            </h2>
-            <p className="text-[11px] tracking-[0.2em] font-medium uppercase text-muted-foreground mb-8">
-              Öğrenci
-            </p>
-
-            {/* Kendim Hakkında & Kurslar Alanı */}
-            <div className="w-full space-y-6 text-left">
-              <div>
-                <h3 className="text-sm font-bold text-foreground/80 mb-2">Kendim Hakkında</h3>
-                <p className="text-sm text-foreground">
-                  {selectedProfileStudent.aboutMe ||
-                    selectedProfileStudent.AboutMe ||
-                    "Henüz bir açıklama eklenmemiş."}
+                <h2 className="text-xl font-bold text-foreground mb-1 text-center">
+                  {selectedProfileStudent.name ||
+                    `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`.trim() ||
+                    "İsimsiz Öğrenci"}
+                </h2>
+                <p className="text-[11px] tracking-[0.2em] font-medium uppercase text-muted-foreground mb-8">
+                  Öğrenci
                 </p>
-                <p className="text-xs text-muted-foreground mt-1 font-mono">
-                  No:{" "}
-                  {selectedProfileStudent.studentNumber ||
-                    selectedProfileStudent.StudentNumber ||
-                    "-"}
-                </p>
-              </div>
 
-              <div>
-                <h3 className="text-sm font-bold text-foreground/80 mb-2">Kayıtlı Kurslar</h3>
-                {getSelectedStudentEnrollments().length > 0 ? (
-                  <ul className="text-sm text-foreground space-y-1.5">
-                    {getSelectedStudentEnrollments().map((enr, idx) => (
-                      <li key={idx} className="flex items-center gap-2">
-                        <span className="size-1.5 rounded-full bg-foreground/50 shrink-0"></span>
-                        {enr.courseTitle || enr.CourseTitle}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Henüz kurs kaydı bulunmuyor.</p>
-                )}
-              </div>
-            </div>
+                <div className="w-full space-y-6 text-left">
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground/80 mb-2">Kendim Hakkında</h3>
+                    <p className="text-sm text-foreground">
+                      {selectedProfileStudent.aboutMe ||
+                        selectedProfileStudent.AboutMe ||
+                        "Henüz bir açıklama eklenmemiş."}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 font-mono">
+                      No:{" "}
+                      {selectedProfileStudent.studentNumber ||
+                        selectedProfileStudent.StudentNumber ||
+                        "-"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground/80 mb-2">Kayıtlı Kurslar</h3>
+                    {getSelectedStudentEnrollments().length > 0 ? (
+                      <ul className="text-sm text-foreground space-y-1.5">
+                        {getSelectedStudentEnrollments().map((enr, idx) => (
+                          <li key={idx} className="flex items-center gap-2">
+                            <span className="size-1.5 rounded-full bg-foreground/50 shrink-0"></span>
+                            {enr.courseTitle || enr.CourseTitle}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Henüz kurs kaydı bulunmuyor.</p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
