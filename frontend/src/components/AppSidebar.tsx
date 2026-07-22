@@ -33,13 +33,10 @@ const parseJwt = (token: string) => {
   }
 };
 
-const getInitials = (name: string) =>
-  name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+interface ProfileMeDto {
+  profilePictureUrl?: string;
+  ProfilePictureUrl?: string;
+}
 
 const menuItems = [
   { title: "Kontrol Paneli", url: "/", icon: LayoutDashboard },
@@ -86,6 +83,7 @@ export function AppSidebar() {
             payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ||
             payload.name ||
             payload.unique_name ||
+            payload.sub ||
             currentName;
         }
       }
@@ -99,21 +97,33 @@ export function AppSidebar() {
       .join("")
       .toUpperCase();
 
-    let photo: string | undefined = undefined;
-    const userKey = `profile_data_${currentName.toLowerCase().replace(/\s+/g, "_")}`;
-    const profileString = localStorage.getItem(userKey);
+    setCurrentUser((prev) => ({ ...prev, name: currentName, role: currentRole, initials }));
+  }, [location.pathname]); // İsim/rol sadece token'dan okunuyor (ucuz), sayfa değiştiğinde senkron kalır
 
-    if (profileString) {
+  // Profil fotoğrafını sadece BİR KERE (oturum başına, mount'ta) ağdan çekiyoruz — her sayfa
+  // geçişinde tekrar tekrar istek atmak gereksiz yavaşlığa yol açıyordu. Kaydedilince zaten
+  // "profile-updated" event'i anında güncelliyor, tekrar fetch etmeye gerek yok.
+  useEffect(() => {
+    const token = localStorage.getItem("jwt_token");
+    if (!token) return;
+
+    const loadPhoto = async () => {
       try {
-        const parsedProfile = JSON.parse(profileString);
-        photo = parsedProfile?.photoUrl;
+        const res = await fetch("http://localhost:5157/api/profile/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data: ProfileMeDto = await res.json();
+          const photo = data.profilePictureUrl || data.ProfilePictureUrl;
+          setCurrentUser((prev) => ({ ...prev, photo: photo || undefined }));
+        }
       } catch (err) {
-        console.warn("Sidebar profil resmi okunamadı:", err);
+        console.warn("Sidebar profil resmi backend'den alınamadı:", err);
       }
-    }
+    };
 
-    setCurrentUser({ name: currentName, role: currentRole, initials, photo });
-  }, [location.pathname]); // <--- BURAYA DİKKAT: Artık sayfa değiştiğinde güncellenecek
+    loadPhoto();
+  }, []);
 
   useEffect(() => {
     const onProfileUpdated = (e: Event) => {

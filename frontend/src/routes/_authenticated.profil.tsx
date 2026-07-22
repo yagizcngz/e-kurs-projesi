@@ -41,10 +41,12 @@ interface EnrollmentDto {
   CourseTitle?: string;
 }
 
-interface StoredProfile {
-  photoUrl?: string;
-  bio?: string;
-  courses?: string;
+interface ProfileDto {
+  source?: string;
+  aboutMe?: string;
+  AboutMe?: string;
+  profilePictureUrl?: string;
+  ProfilePictureUrl?: string;
 }
 
 function ProfilePage() {
@@ -53,6 +55,7 @@ function ProfilePage() {
   const [photoUrl, setPhotoUrl] = useState("");
   const [bio, setBio] = useState("");
   const [enrollments, setEnrollments] = useState<EnrollmentDto[]>([]);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -82,23 +85,29 @@ function ProfilePage() {
 
     setName(currentUserName);
 
-    // Belirlenen kullanıcı adına göre profil verisini çekiyoruz
-    const userKey = `profile_data_${currentUserName.replace(/\s+/g, "_").toLowerCase()}`;
-    const userProfileString = localStorage.getItem(userKey);
-
-    if (userProfileString) {
+    const loadProfile = async () => {
+      if (!token) return;
       try {
-        const storedProfile = JSON.parse(userProfileString) as StoredProfile;
-        setPhotoUrl(storedProfile.photoUrl || "");
-        setBio(storedProfile.bio || "");
+        // Tek istek: backend hem öğrenci hem kullanıcı ihtimalini kendi içinde hallediyor
+        const res = await fetch("http://localhost:5157/api/profile/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        if (res.ok) {
+          const data: ProfileDto = await res.json();
+          setPhotoUrl(data.profilePictureUrl || data.ProfilePictureUrl || "");
+          setBio(data.aboutMe || data.AboutMe || "");
+        }
       } catch (err) {
-        console.warn(`[${currentUserName}] profil bilgisi okunamadı:`, err);
+        console.warn("Profil bilgisi alınamadı:", err);
+      } finally {
+        setProfileLoaded(true);
       }
-    } else {
-      // Kullanıcıya özel veri yoksa alanları temizle (İzolasyon)
-      setPhotoUrl("");
-      setBio("");
-    }
+    };
+
+    loadProfile();
   }, []);
 
   useEffect(() => {
@@ -140,47 +149,72 @@ function ProfilePage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    const profileToStore: StoredProfile = { photoUrl, bio };
+    const currentUserName = name.trim();
+    if (!currentUserName) {
+      showToast("Kullanıcı adı boş olamaz.", "error");
+      return;
+    }
+
     try {
-      const currentUserName = name.trim();
-      if (!currentUserName) {
-        showToast("Kullanıcı adı boş olamaz.", "error");
-        return;
+      const token = localStorage.getItem("jwt_token");
+      const response = await fetch("http://localhost:5157/api/profile/me", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          AboutMe: bio,
+          ProfilePictureUrl: photoUrl,
+        }),
+      });
+
+      if (response.ok) {
+        window.dispatchEvent(
+          new CustomEvent("profile-updated", { detail: { name: currentUserName, photoUrl } }),
+        );
+        showToast("Profil başarıyla güncellendi.");
+      } else {
+        showToast("Profil güncellenirken bir hata oluştu.", "error");
       }
-
-      // Sadece kullanıcının adına özel bir anahtarla kaydedin
-      const userKey = `profile_data_${currentUserName.replace(/\s+/g, "_").toLowerCase()}`;
-      localStorage.setItem(userKey, JSON.stringify(profileToStore));
-
-      window.dispatchEvent(
-        new CustomEvent("profile-updated", { detail: { name: currentUserName, photoUrl } }),
-      );
-      showToast("Profil başarıyla güncellendi.");
     } catch (err) {
       console.error(err);
-      showToast("Profil kaydedilirken hata oluştu.", "error");
+      showToast("Sunucuya ulaşılamıyor.", "error");
     }
   };
 
-  const handlePhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string | null;
-      if (result) {
-        setPhotoUrl(result);
-        // Resim seçildiği an Sidebar'ı anında güncelle (kaydetmeyi bekleme)
+
+    const token = localStorage.getItem("jwt_token");
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("http://localhost:5157/api/uploads/profile-picture", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const fullUrl = `http://localhost:5157${data.url}`;
+        setPhotoUrl(fullUrl);
+        // Sidebar'ı anında güncelle (kaydetmeyi bekleme)
         window.dispatchEvent(
-          new CustomEvent("profile-updated", {
-            detail: { name, photoUrl: result },
-          }),
+          new CustomEvent("profile-updated", { detail: { name, photoUrl: fullUrl } }),
         );
+      } else {
+        showToast("Fotoğraf yüklenirken bir hata oluştu.", "error");
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      showToast("Sunucuya ulaşılamıyor.", "error");
+    }
   };
 
   const displayedCourses = useMemo(() => {
@@ -242,9 +276,12 @@ function ProfilePage() {
 
             <div className="mt-8 space-y-6">
               <div>
-                <h3 className="text-sm font-bold text-muted-foreground mb-1">Biyografi</h3>
+                <h3 className="text-sm font-bold text-muted-foreground mb-1">Kendim Hakkında</h3>
                 <p className="mt-2 text-sm text-foreground leading-6">
-                  {bio || "Henüz biyografiniz yok. Profilinizi güncelleyerek ekleyebilirsiniz."}
+                  {!profileLoaded
+                    ? "Yükleniyor..."
+                    : bio ||
+                      "Henüz bir açıklama eklemediniz. Profilinizi güncelleyerek ekleyebilirsiniz."}
                 </p>
               </div>
 
@@ -327,7 +364,7 @@ function ProfilePage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Biyografi</label>
+                <label className="text-sm font-medium">Kendim Hakkında</label>
                 <textarea
                   rows={4}
                   value={bio}
@@ -349,7 +386,9 @@ function ProfilePage() {
       </div>
 
       {toast && (
-        <div className="fixed bottom-6 right-6 z-300 flex items-center gap-3 rounded-lg bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white shadow-xl">
+        <div
+          className={`fixed bottom-6 right-6 z-300 flex items-center gap-3 rounded-lg px-5 py-3.5 text-sm font-bold text-white shadow-xl ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}
+        >
           <CheckCircle2 className="w-5 h-5" />
           {toast.message}
         </div>

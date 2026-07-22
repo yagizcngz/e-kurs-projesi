@@ -62,7 +62,10 @@ function EnrollmentsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+
+  // ÇOKLU SEÇİM VE DÜZENLEME MODU STATE'LERİ
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedEnrollmentIds, setSelectedEnrollmentIds] = useState<number[]>([]);
 
   const [toast, setToast] = useState<{
     message: string;
@@ -136,6 +139,30 @@ function EnrollmentsPage() {
     setIsModalOpen(false);
   };
 
+  // YENİ: DÜZENLEME MODU VE SEÇİM FONKSİYONLARI
+  const toggleEditMode = () => {
+    setIsEditMode(!isEditMode);
+    setSelectedEnrollmentIds([]);
+  };
+
+  const handleSelectEnrollment = (id: number | undefined) => {
+    if (!id) return;
+    setSelectedEnrollmentIds((prev) =>
+      prev.includes(id) ? prev.filter((enrollmentId) => enrollmentId !== id) : [...prev, id],
+    );
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const allFilteredIds = filteredEnrollments
+        .map((enr) => pick(enr.id, enr.Id) as number)
+        .filter((id) => id !== undefined);
+      setSelectedEnrollmentIds(allFilteredIds);
+    } else {
+      setSelectedEnrollmentIds([]);
+    }
+  };
+
   const handleEnroll = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -180,48 +207,33 @@ function EnrollmentsPage() {
     }
   };
 
-  const handleDeleteEnrollment = (enrollmentId: number) => {
-    setPendingDeleteId(enrollmentId);
-    setIsConfirmOpen(true);
-  };
-
+  // TOPLU SİLME ONAY İŞLEMİ
   const confirmDeleteEnrollment = async () => {
-    if (pendingDeleteId === null) return;
+    if (selectedEnrollmentIds.length === 0) return;
 
     setIsConfirmOpen(false);
 
     try {
-      const res = await fetch(`${API}/enrollments/${pendingDeleteId}`, {
-        method: "DELETE",
-        headers: authHeaders(),
-      });
+      await Promise.all(
+        selectedEnrollmentIds.map((id) =>
+          fetch(`${API}/enrollments/${id}`, {
+            method: "DELETE",
+            headers: authHeaders(),
+          }),
+        ),
+      );
 
-      if (res.ok) {
-        showToast("Kayıt başarıyla silindi.");
-        fetchEnrollments();
-      } else {
-        let msg = "Kayıt silinemedi.";
-
-        try {
-          const data = await res.json();
-          msg = data.error || data.message || msg;
-        } catch {
-          const txt = await res.text();
-          if (txt) msg = txt;
-        }
-
-        showToast(msg, "error");
-      }
+      showToast(`${selectedEnrollmentIds.length} kayıt başarıyla silindi.`);
+      fetchEnrollments();
+      setSelectedEnrollmentIds([]);
+      setIsEditMode(false);
     } catch (err) {
       console.error(err);
       showToast("Sunucuya ulaşılamıyor.", "error");
-    } finally {
-      setPendingDeleteId(null);
     }
   };
 
   const cancelDeleteEnrollment = () => {
-    setPendingDeleteId(null);
     setIsConfirmOpen(false);
   };
 
@@ -232,9 +244,7 @@ function EnrollmentsPage() {
 
     return enrollments.filter((enrollment) => {
       const studentName = pick(enrollment.studentFullName, enrollment.StudentFullName) || "";
-
       const studentNumber = pick(enrollment.studentNumber, enrollment.StudentNumber) || "";
-
       const courseTitle = pick(enrollment.courseTitle, enrollment.CourseTitle) || "";
 
       return (
@@ -254,14 +264,36 @@ function EnrollmentsPage() {
             Öğrenci kayıtlarını görüntüle, ekle ve sil.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleOpenModal}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Yeni Kayıt
-        </button>
+
+        <div className="flex gap-2">
+          {/* Sadece seçim yapıldığında görünen silme butonu */}
+          {isEditMode && selectedEnrollmentIds.length > 0 && (
+            <button
+              onClick={() => setIsConfirmOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 animate-in fade-in"
+            >
+              <Trash2 className="h-4 w-4" />
+              Seçilenleri Sil ({selectedEnrollmentIds.length})
+            </button>
+          )}
+
+          {/* Düzenleme modunu açıp kapatan buton */}
+          <button
+            onClick={toggleEditMode}
+            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            {isEditMode ? "İptal" : "Kayıtları Düzenle"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOpenModal}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Yeni Kayıt
+          </button>
+        </div>
       </div>
 
       <div className="px-8">
@@ -285,7 +317,20 @@ function EnrollmentsPage() {
                   <th className="px-6 py-3 font-medium">Öğrenci</th>
                   <th className="px-6 py-3 font-medium">Kurs</th>
                   <th className="px-6 py-3 font-medium">Kayıt Tarihi</th>
-                  <th className="px-6 py-3 text-right font-medium">İşlem</th>
+                  {/* SADECE DÜZENLEME MODUNDAYKEN GÖRÜNECEK BAŞLIK */}
+                  {isEditMode && (
+                    <th className="px-6 py-3 text-right font-medium">
+                      <input
+                        type="checkbox"
+                        className="size-4 rounded border-gray-300 text-foreground focus:ring-foreground cursor-pointer"
+                        onChange={handleSelectAll}
+                        checked={
+                          selectedEnrollmentIds.length === filteredEnrollments.length &&
+                          filteredEnrollments.length > 0
+                        }
+                      />
+                    </th>
+                  )}
                 </tr>
               </thead>
 
@@ -313,7 +358,12 @@ function EnrollmentsPage() {
                     const dateText = rawDate ? new Date(rawDate).toLocaleDateString("tr-TR") : "-";
 
                     return (
-                      <tr key={id} className="transition-colors hover:bg-muted/40">
+                      <tr
+                        key={id}
+                        className={`transition-colors hover:bg-muted/40 ${
+                          selectedEnrollmentIds.includes(Number(id)) ? "bg-muted/60" : ""
+                        }`}
+                      >
                         <td className="px-6 py-4 font-mono text-xs text-muted-foreground">
                           #{String(id).padStart(4, "0")}
                         </td>
@@ -328,18 +378,17 @@ function EnrollmentsPage() {
                           {dateText}
                         </td>
 
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (id) handleDeleteEnrollment(Number(id));
-                            }}
-                            className="inline-flex items-center gap-2 rounded-md border border-red-500 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-500/15"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Sil
-                          </button>
-                        </td>
+                        {/* SADECE DÜZENLEME MODUNDAYKEN GÖRÜNECEK HÜCRE */}
+                        {isEditMode && (
+                          <td className="px-6 py-4 text-right">
+                            <input
+                              type="checkbox"
+                              className="size-4 rounded border-gray-300 text-foreground focus:ring-foreground cursor-pointer"
+                              checked={selectedEnrollmentIds.includes(Number(id))}
+                              onChange={() => handleSelectEnrollment(Number(id))}
+                            />
+                          </td>
+                        )}
                       </tr>
                     );
                   })
@@ -437,6 +486,7 @@ function EnrollmentsPage() {
         </div>
       )}
 
+      {/* SİLME ONAY MODALI - ÇOKLU SİLME İÇİN GÜNCELLENDİ */}
       {isConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-lg">
@@ -448,7 +498,8 @@ function EnrollmentsPage() {
               <div>
                 <h2 className="text-lg font-semibold">Silme Onayı</h2>
                 <p className="text-sm text-muted-foreground">
-                  Bu kaydı silmek istediğinize emin misiniz?
+                  Seçili <strong>{selectedEnrollmentIds.length}</strong> kaydı silmek istediğinize
+                  emin misiniz?
                 </p>
               </div>
             </div>
@@ -462,13 +513,13 @@ function EnrollmentsPage() {
                 onClick={confirmDeleteEnrollment}
                 className="px-4 py-2 text-sm font-semibold bg-red-600 text-white hover:bg-red-700 rounded-md transition-colors"
               >
-                Evet
+                Evet, Sil
               </button>
               <button
                 onClick={cancelDeleteEnrollment}
                 className="px-4 py-2 text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
               >
-                Hayır
+                Hayır, İptal
               </button>
             </div>
           </div>

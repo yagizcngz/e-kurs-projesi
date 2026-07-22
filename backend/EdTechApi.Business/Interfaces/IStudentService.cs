@@ -8,5 +8,10 @@ namespace EdTechApi.Business.Interfaces
         Task<Student?> GetStudentByIdAsync(int id);
         Task AddStudentAsync(Student student);
         Task DeleteStudentAsync(int id);
+
+        // Giriş yapan kullanıcının adı ile eşleşen Student kaydını bulur (Enrollment eşleştirmesindeki
+        // ad-soyad mantığıyla aynı yaklaşım kullanılıyor, çünkü User <-> Student arasında henüz bir FK yok)
+        Task<Student?> GetStudentByUsernameAsync(string username);
+        Task<bool> UpdateStudentProfileAsync(string username, string? aboutMe, string? profilePictureUrl);
     }
 }

@@ -22,10 +22,13 @@ namespace EdTechApi.DataAccess.Context
              modelBuilder.Entity<Student>()
                .HasIndex(s => s.StudentNumber)
                 .IsUnique();
-            // Test edebilmen için veritabanı oluşurken otomatik bir kullanıcı ekliyoruz
-            modelBuilder.Entity<User>().HasData(
-                new User { Id = 1, Username = "admin", Password = "password123" }
-            );
+            // NOT: Daha önce burada BCrypt.HashPassword(...) ile hash'lenmiş bir "admin" seed
+            // kullanıcısı vardı, ancak BCrypt her çağrıldığında farklı bir salt/hash ürettiği
+            // için (deterministik değil), EF Core'un migration karşılaştırmasını bozup
+            // "PendingModelChangesWarning" hatasına yol açıyordu. HasData içindeki değerler
+            // sabit olmak zorunda. Zaten "superadmin" hesabı /api/auth/register üzerinden
+            // normal şekilde oluşturulup düzgün hash'lenmiş halde veritabanında duruyor,
+            // bu yüzden buradaki seed'e ihtiyaç yok — kaldırıldı.
 
             base.OnModelCreating(modelBuilder);
         }

@@ -1,0 +1,27 @@
+Aslında bu bir hata değil — bu sadece git status çıktısı, normal bir bilgilendirme. Ama içinde gerçek bir sorun var: projenizde .gitignore dosyası olmadığı için bin/ ve obj/ klasörleri (derleme çıktıları, binary dosyalar) yanlışlıkla git'e dahil edilmiş. Bunlar hiçbir zaman commit'lenmemeli — her derlemede değişirler, repo'yu şişirirler ve gereksiz "modified" kirliliği yaratırlar.
+
+Önce bunu düzeltelim, sonra gerçek değişiklikleri commit'leyelim:
+
+1. Proje kök dizininde .gitignore dosyası oluşturun/güncelleyin
+
+C:\Users\Cengiz\stajkod\e-kurs-projesi\.gitignore dosyasını açın (yoksa oluşturun) ve şunu yapıştırın:
+
+# .NET derleme çıktıları
+**/bin/
+**/obj/
+
+# Frontend
+frontend/node_modules/
+frontend/.output/
+frontend/.tanstack/
+frontend/.wrangler/
+frontend/dist/
+
+# Kullanıcı tarafından yüklenen dosyalar (profil fotoğrafları vs.)
+backend/EdTechApi.API/wwwroot/uploads/
+
+# IDE / OS
+.vs/
+.vscode/
+*.user
+Thumbs.db

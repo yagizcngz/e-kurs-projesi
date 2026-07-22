@@ -135,7 +135,10 @@ function CoursesPage() {
   const [newCapacity, setNewCapacity] = useState("");
   const [newPrice, setNewPrice] = useState("");
 
-  const [courseToDelete, setCourseToDelete] = useState<CourseData | null>(null);
+  // ÇOKLU SEÇİM VE DÜZENLEME MODU STATE'LERİ
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedCourseIds, setSelectedCourseIds] = useState<(string | number)[]>([]);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -233,36 +236,60 @@ function CoursesPage() {
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!courseToDelete) return;
-    const id = courseToDelete.id ?? courseToDelete.Id;
-    if (id === undefined || id === null) {
-      showToast("Kurs ID bulunamadı.", "error");
-      return;
+  // YENİ: DÜZENLEME MODU VE SEÇİM FONKSİYONLARI
+  const toggleEditMode = () => {
+    setIsEditMode(!isEditMode);
+    setSelectedCourseIds([]);
+  };
+
+  const handleSelectCourse = (id: string | number | undefined) => {
+    if (!id) return;
+    setSelectedCourseIds((prev) =>
+      prev.includes(id) ? prev.filter((courseId) => courseId !== id) : [...prev, id],
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedCourseIds.length === filteredCourses.length && filteredCourses.length > 0) {
+      // Tümü seçiliyse temizle
+      setSelectedCourseIds([]);
+    } else {
+      // Tümünü seç
+      const allFilteredIds = filteredCourses
+        .map((c) => c.id ?? c.Id)
+        .filter((id): id is string | number => id !== undefined);
+      setSelectedCourseIds(allFilteredIds);
     }
+  };
+
+  // TOPLU SİLME ONAY İŞLEMİ
+  const handleConfirmBulkDelete = async () => {
+    if (selectedCourseIds.length === 0) return;
 
     setIsDeleting(true);
     try {
       const token = localStorage.getItem("jwt_token");
-      const response = await fetch(`http://localhost:5157/api/courses/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
 
-      if (response.ok) {
-        showToast("Kurs başarıyla silindi!");
-        setCourseToDelete(null);
-        fetchCourses();
-      } else {
-        const errorData = await response.text();
-        console.error("Silme hatası:", errorData);
-        showToast("Kurs silinemedi.", "error");
-      }
+      await Promise.all(
+        selectedCourseIds.map((id) =>
+          fetch(`http://localhost:5157/api/courses/${id}`, {
+            method: "DELETE",
+            headers,
+          }),
+        ),
+      );
+
+      showToast(`${selectedCourseIds.length} kurs başarıyla silindi!`);
+      setIsConfirmOpen(false);
+      setSelectedCourseIds([]);
+      setIsEditMode(false);
+      fetchCourses();
     } catch (error) {
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      console.error("Silme hatası:", error);
+      showToast("Kurslar silinirken bir hata oluştu.", "error");
     } finally {
       setIsDeleting(false);
     }
@@ -293,13 +320,46 @@ function CoursesPage() {
         onSearchChange={setSearchTerm}
         action={
           canManage && (
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
-            >
-              <Plus className="size-4" />
-              Yeni Kurs
-            </button>
+            <div className="flex gap-2">
+              {/* Sadece seçim yapıldığında görünen silme butonu */}
+              {isEditMode && selectedCourseIds.length > 0 && (
+                <button
+                  onClick={() => setIsConfirmOpen(true)}
+                  className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-red-600 transition-colors animate-in fade-in"
+                >
+                  <Trash2 className="size-4" />
+                  Seçilenleri Sil ({selectedCourseIds.length})
+                </button>
+              )}
+
+              {/* Tümünü Seç Butonu (Sadece düzenleme modunda) */}
+              {isEditMode && (
+                <button
+                  onClick={handleSelectAll}
+                  className="flex items-center gap-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md text-xs font-bold transition-colors"
+                >
+                  {selectedCourseIds.length === filteredCourses.length && filteredCourses.length > 0
+                    ? "Seçimi Temizle"
+                    : "Tümünü Seç"}
+                </button>
+              )}
+
+              {/* Düzenleme modunu açıp kapatan buton */}
+              <button
+                onClick={toggleEditMode}
+                className="flex items-center gap-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md text-xs font-bold transition-colors"
+              >
+                {isEditMode ? "İptal" : "Kursları Düzenle"}
+              </button>
+
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
+              >
+                <Plus className="size-4" />
+                Yeni Kurs
+              </button>
+            </div>
           )
         }
       />
@@ -316,17 +376,24 @@ function CoursesPage() {
             </div>
           ) : (
             filteredCourses.map((c, index) => {
+              const currentId = c.id ?? c.Id;
               const title = c.title || c.Title || "İsimsiz Kurs";
               const category = c.category || c.Category || "Genel";
               const price = c.price || c.Price || "0";
               const instructor = c.instructor || c.Instructor || "Bilinmiyor";
+              const isSelected = selectedCourseIds.includes(currentId as string | number);
 
               const imageUrl = getCourseImage(c, index);
 
               return (
                 <div
-                  key={c.id || c.Id || index}
-                  className="group bg-card border border-border hover:border-accent transition-colors rounded-md overflow-hidden shadow-sm flex flex-col"
+                  key={currentId || index}
+                  // Seçim yapıldıysa karta ekstra çerçeve ve arka plan rengi ekliyoruz
+                  className={`group bg-card border transition-colors rounded-md overflow-hidden shadow-sm flex flex-col ${
+                    isSelected
+                      ? "border-foreground bg-foreground/5 ring-1 ring-foreground"
+                      : "border-border hover:border-accent"
+                  }`}
                 >
                   <div className="w-full aspect-video relative overflow-hidden bg-neutral-100">
                     <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
@@ -349,14 +416,18 @@ function CoursesPage() {
                     <div className="flex justify-between items-center text-xs text-muted-foreground mt-auto">
                       <span>Eğitmen: {instructor}</span>
                     </div>
-                    {canManage && (
-                      <button
-                        onClick={() => setCourseToDelete(c)}
-                        className="mt-4 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-mono uppercase text-red-600 border border-red-200 hover:bg-red-50 rounded-md transition-colors"
-                      >
-                        <Trash2 className="size-3.5" strokeWidth={2} />
-                        Sil
-                      </button>
+
+                    {/* SADECE DÜZENLEME MODUNDAYKEN GÖRÜNECEK ONAY KUTUSU (Sil Butonu Yerine) */}
+                    {canManage && isEditMode && (
+                      <label className="mt-4 flex items-center justify-center gap-2 px-3 py-2 text-[11px] font-mono uppercase bg-background border border-border hover:bg-muted rounded-md cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          className="size-4 rounded border-gray-300 text-foreground focus:ring-foreground cursor-pointer"
+                          checked={isSelected}
+                          onChange={() => handleSelectCourse(currentId)}
+                        />
+                        {isSelected ? "Seçildi" : "Seç"}
+                      </label>
                     )}
                   </div>
                 </div>
@@ -446,9 +517,10 @@ function CoursesPage() {
         </div>
       )}
 
-      {courseToDelete && (
+      {/* SİLME ONAY MODALI - ÇOKLU SİLME İÇİN GÜNCELLENDİ */}
+      {isConfirmOpen && (
         <div
-          onClick={() => !isDeleting && setCourseToDelete(null)}
+          onClick={() => !isDeleting && setIsConfirmOpen(false)}
           className="fixed inset-0 z-200 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
         >
           <div
@@ -457,13 +529,13 @@ function CoursesPage() {
           >
             <div className="flex items-start gap-4">
               <div className="size-10 rounded-full bg-red-100 grid place-items-center shrink-0">
-                <AlertCircle className="size-5 text-red-600" />
+                <Trash2 className="size-5 text-red-600" />
               </div>
               <div className="flex-1">
                 <h3 className="font-bold text-lg tracking-tight">Silme Onayı</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  "{courseToDelete.title || courseToDelete.Title || "Bu kurs"}" kursunu silmek
-                  istediğinize emin misiniz?
+                  Seçili <strong>{selectedCourseIds.length}</strong> kursu silmek istediğinize emin
+                  misiniz?
                 </p>
                 <p className="text-sm text-muted-foreground mt-3">
                   Bu işlem geri alınamaz. Lütfen onaylayın veya iptal edin.
@@ -472,18 +544,18 @@ function CoursesPage() {
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button
-                onClick={handleConfirmDelete}
+                onClick={handleConfirmBulkDelete}
                 disabled={isDeleting}
                 className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-60"
               >
-                {isDeleting ? "Siliniyor..." : "Evet"}
+                {isDeleting ? "Siliniyor..." : "Evet, Sil"}
               </button>
               <button
-                onClick={() => setCourseToDelete(null)}
+                onClick={() => setIsConfirmOpen(false)}
                 disabled={isDeleting}
                 className="px-4 py-2 text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
               >
-                Hayır
+                Hayır, İptal
               </button>
             </div>
           </div>

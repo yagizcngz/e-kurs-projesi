@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "../components/PageHeader";
-import { Plus, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, X, CheckCircle2, AlertCircle, Edit2, Trash2, Camera } from "lucide-react";
 import { useState, useEffect } from "react";
-import { statusStyles } from "../lib/mock-data";
 
 export const Route = createFileRoute("/_authenticated/ogrenciler")({
   component: StudentsPage,
@@ -27,6 +26,10 @@ interface StudentData {
   initials?: string;
   studentNumber?: string;
   StudentNumber?: string;
+  profilePictureUrl?: string;
+  ProfilePictureUrl?: string;
+  aboutMe?: string;
+  AboutMe?: string;
 }
 
 interface EnrollmentData {
@@ -58,7 +61,13 @@ function StudentsPage() {
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [studentToDelete, setStudentToDelete] = useState<string | number | null>(null);
+
+  // ÇOKLU SEÇİM VE DÜZENLEME MODU STATE'LERİ
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<(string | number)[]>([]);
+
+  // PROFİL GÖRÜNTÜLEME İÇİN STATE
+  const [selectedProfileStudent, setSelectedProfileStudent] = useState<StudentData | null>(null);
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -81,6 +90,10 @@ function StudentsPage() {
       if (response.ok) {
         const data = await response.json();
         setDbStudents(data);
+      } else {
+        // Backend'den gelen gerçek hatayı görebilmek için ekliyoruz
+        const errorText = await response.text();
+        console.error(`Öğrenciler alınamadı (status ${response.status}):`, errorText);
       }
     } catch (error) {
       console.error("Öğrenciler yüklenirken hata:", error);
@@ -90,10 +103,8 @@ function StudentsPage() {
   };
 
   useEffect(() => {
-    // Sizin mevcut öğrencileri çeken fonksiyonunuz
     fetchStudents();
 
-    // Kayıtları (enrollments) çeken YENİ kod bloğumuz
     const fetchEnrollments = async () => {
       const token = localStorage.getItem("jwt_token");
       const headers = { Authorization: `Bearer ${token}` };
@@ -110,16 +121,32 @@ function StudentsPage() {
 
     fetchEnrollments();
   }, []);
-  // Bu fonksiyon sadece modalı açacak ve silinecek ID'yi kaydedecek
-  const handleDeleteStudent = (studentId: string | number | undefined) => {
-    if (!studentId) return;
-    setStudentToDelete(studentId);
-    setIsDeleteModalOpen(true);
+
+  const toggleEditMode = () => {
+    setIsEditMode(!isEditMode);
+    setSelectedStudentIds([]);
   };
 
-  // Bu fonksiyon modalda "Evet"e basıldığında çalışacak asıl silme işlemi
+  const handleSelectStudent = (id: string | number | undefined) => {
+    if (!id) return;
+    setSelectedStudentIds((prev) =>
+      prev.includes(id) ? prev.filter((studentId) => studentId !== id) : [...prev, id],
+    );
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const allFilteredIds = filteredStudents
+        .map((s) => s.id || s.Id)
+        .filter((id): id is string | number => id !== undefined);
+      setSelectedStudentIds(allFilteredIds);
+    } else {
+      setSelectedStudentIds([]);
+    }
+  };
+
   const confirmDelete = async () => {
-    if (!studentToDelete) return;
+    if (selectedStudentIds.length === 0) return;
 
     try {
       const token = localStorage.getItem("jwt_token");
@@ -127,30 +154,31 @@ function StudentsPage() {
         Authorization: `Bearer ${token}`,
       };
 
-      const response = await fetch(`http://localhost:5157/api/students/${studentToDelete}`, {
-        method: "DELETE",
-        headers,
-      });
+      await Promise.all(
+        selectedStudentIds.map((id) =>
+          fetch(`http://localhost:5157/api/students/${id}`, {
+            method: "DELETE",
+            headers,
+          }),
+        ),
+      );
 
-      if (response.ok) {
-        setDbStudents((prevStudents) =>
-          prevStudents.filter((s) => (s.id || s.Id) !== studentToDelete),
-        );
-        // Başarılıysa modalı kapat ve seçili öğrenciyi sıfırla
-        setIsDeleteModalOpen(false);
-        setStudentToDelete(null);
-      } else {
-        console.error("Öğrenci silinirken bir hata oluştu.");
-      }
+      setDbStudents((prevStudents) =>
+        prevStudents.filter((s) => !selectedStudentIds.includes(s.id || (s.Id as string | number))),
+      );
+
+      showToast(`${selectedStudentIds.length} öğrenci başarıyla silindi!`);
+      setIsDeleteModalOpen(false);
+      setSelectedStudentIds([]);
+      setIsEditMode(false);
     } catch (error) {
       console.error("Silme hatası:", error);
+      showToast("Öğrenciler silinirken bir hata oluştu.", "error");
     }
   };
 
-  // Modalı iptal etme fonksiyonu
   const cancelDelete = () => {
     setIsDeleteModalOpen(false);
-    setStudentToDelete(null);
   };
 
   const handleAddStudent = async (e: React.FormEvent) => {
@@ -164,16 +192,12 @@ function StudentsPage() {
 
     const lastName = nameParts.pop();
     const firstName = nameParts.join(" ");
-
     const yearPrefix = new Date().getFullYear().toString().slice(-2);
 
-    // --- YENİ EKLENEN KISIM: En büyük numarayı bularak çakışmaları önlüyoruz ---
     let maxSequence = 0;
     dbStudents.forEach((s) => {
       const numStr = s.studentNumber || s.StudentNumber || "";
-      // Eğer numara mevcut yılın prefixi (örn: "26") ile başlıyorsa
       if (numStr.startsWith(yearPrefix)) {
-        // "26" kısmını atıp kalan numarayı sayıya çevir
         const seq = parseInt(numStr.slice(2), 10);
         if (!isNaN(seq) && seq > maxSequence) {
           maxSequence = seq;
@@ -181,10 +205,8 @@ function StudentsPage() {
       }
     });
 
-    // En büyük numaranın bir fazlasını al (Eğer liste boşsa 1 olur)
     const nextSequence = String(maxSequence + 1).padStart(7, "0");
     const logicalStudentNumber = `${yearPrefix}${nextSequence}`;
-    // -------------------------------------------------------------------------
 
     try {
       const token = localStorage.getItem("jwt_token");
@@ -212,7 +234,6 @@ function StudentsPage() {
         fetchStudents();
       } else {
         const errorData = await response.text();
-        // Hatanın detayını tarayıcı konsoluna yazdırıyoruz
         console.error("Backend hatası:", errorData);
         showToast("Kayıt başarısız! Bilgileri kontrol edin.", "error");
       }
@@ -233,6 +254,27 @@ function StudentsPage() {
     );
   });
 
+  // Seçili öğrencinin kurs kayıtlarını profil modalı için hesaplayan yardımcı fonksiyon
+  const getSelectedStudentEnrollments = () => {
+    if (!selectedProfileStudent) return [];
+    const fullName =
+      selectedProfileStudent.name ||
+      `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`.trim();
+    const studentFullName = fullName.toLowerCase();
+    const studentNumber = String(
+      selectedProfileStudent.studentNumber || selectedProfileStudent.StudentNumber || "",
+    ).toLowerCase();
+
+    return dbEnrollments.filter((e) => {
+      const enrName = String(e.studentFullName || e.StudentFullName || "").toLowerCase();
+      const enrNumber = String(e.studentNumber || e.StudentNumber || "").toLowerCase();
+      return (
+        (enrName && studentFullName && enrName.includes(studentFullName)) ||
+        (enrNumber && studentNumber && enrNumber === studentNumber)
+      );
+    });
+  };
+
   return (
     <>
       <PageHeader
@@ -240,13 +282,32 @@ function StudentsPage() {
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         action={
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
-          >
-            <Plus className="size-4" />
-            Yeni Öğrenci
-          </button>
+          <div className="flex gap-2">
+            {isEditMode && selectedStudentIds.length > 0 && (
+              <button
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-red-600 transition-colors animate-in fade-in"
+              >
+                <Trash2 className="size-4" />
+                Seçilenleri Sil ({selectedStudentIds.length})
+              </button>
+            )}
+
+            <button
+              onClick={toggleEditMode}
+              className="flex items-center gap-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md text-xs font-bold transition-colors"
+            >
+              {isEditMode ? "İptal" : "Öğrencileri Düzenle"}
+            </button>
+
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
+            >
+              <Plus className="size-4" />
+              Yeni Öğrenci
+            </button>
+          </div>
         }
       />
 
@@ -271,16 +332,26 @@ function StudentsPage() {
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
                   Durum
                 </th>
-                <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
-                  İşlem
-                </th>
+                {isEditMode && (
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
+                    <input
+                      type="checkbox"
+                      className="size-4 rounded border-gray-300 text-foreground focus:ring-foreground cursor-pointer"
+                      onChange={handleSelectAll}
+                      checked={
+                        selectedStudentIds.length === filteredStudents.length &&
+                        filteredStudents.length > 0
+                      }
+                    />
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-border">
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-6 py-12 text-center text-muted-foreground animate-pulse font-mono text-xs uppercase tracking-widest"
                   >
                     Öğrenciler Yükleniyor...
@@ -288,7 +359,7 @@ function StudentsPage() {
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground text-xs">
+                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-xs">
                     Kayıtlı öğrenci bulunamadı.
                   </td>
                 </tr>
@@ -299,10 +370,8 @@ function StudentsPage() {
                     `${s.firstName || s.FirstName || ""} ${s.lastName || s.LastName || ""}`.trim() ||
                     "İsimsiz Öğrenci";
                   const email = s.email || s.Email || "-";
-
                   const initials = s.initials || fullName.slice(0, 2).toUpperCase();
 
-                  // 1. Öğrenci ile kayıtları eşleştir
                   const studentFullName = fullName.trim().toLowerCase();
                   const rawStudentNumber = s.studentNumber || s.StudentNumber || "";
                   const studentNumber = String(rawStudentNumber).toLowerCase();
@@ -319,58 +388,38 @@ function StudentsPage() {
                     );
                   });
 
-                  // YENİ EKLENEN KISIM: Eğer öğrencinin kurs kaydı varsa AKTİF, yoksa PASİF yapıyoruz
                   const calculatedStatus = studentEnrollments.length > 0 ? "AKTİF" : "PASİF";
-
-                  // 2. Kurs ve Tarih bilgilerini hesapla
-                  let displayCourse = "-";
-                  let displayDate = "-";
-
-                  if (studentEnrollments.length > 0) {
-                    const courseNames = studentEnrollments.map(
-                      (e) => e.courseTitle || e.CourseTitle || "Bilinmeyen Kurs",
-                    );
-                    displayCourse = courseNames.join(", ");
-
-                    const validDates = studentEnrollments
-                      .map((e) => e.enrollmentDate || e.EnrollmentDate || e.date || e.Date)
-                      .filter(Boolean);
-
-                    if (validDates.length > 0) {
-                      const latestDateRaw = validDates[validDates.length - 1];
-                      const dateObj = new Date(latestDateRaw as string);
-                      displayDate = isNaN(dateObj.getTime())
-                        ? (latestDateRaw as string)
-                        : dateObj.toLocaleDateString("tr-TR");
-                    }
-                  }
-
-                  // 3. Tabloya yazdırılacak nihai değişkenler (Aşağıdaki return içindeki HTML bu isimleri kullanıyor)
-                  const course =
-                    displayCourse !== "-" ? displayCourse : s.course || s.Course || "-";
                   const dateRaw = s.date || s.Date;
                   const date = dateRaw ? new Date(dateRaw).toLocaleDateString("tr-TR") : "-";
+                  const currentId = s.id || s.Id;
 
                   return (
                     <tr
-                      key={s.id || s.Id || index}
-                      className="hover:bg-foreground/2 transition-colors"
+                      key={currentId || index}
+                      className={`hover:bg-foreground/2 transition-colors ${
+                        selectedStudentIds.includes(currentId as string | number)
+                          ? "bg-foreground/5"
+                          : ""
+                      }`}
                     >
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="size-10 rounded bg-muted grid place-items-center text-[10px] font-mono text-muted-foreground shrink-0 uppercase">
+                        {/* TIKLANABİLİR PROFİL ALANI */}
+                        <div
+                          className="flex items-center gap-3 cursor-pointer group w-fit"
+                          onClick={() => setSelectedProfileStudent(s)}
+                          title="Profili Görüntüle"
+                        >
+                          <div className="size-10 rounded bg-muted grid place-items-center text-[10px] font-mono text-muted-foreground shrink-0 uppercase group-hover:bg-foreground group-hover:text-background transition-colors duration-300">
                             {initials}
                           </div>
                           <div>
-                            <div className="font-semibold">{fullName}</div>
-                            {/* Email değişkeni yerine doğrudan öğrenci numarasını çağırıyoruz */}
+                            <div className="font-semibold group-hover:underline">{fullName}</div>
                             <div className="text-xs text-muted-foreground font-mono">
                               {s.studentNumber || s.StudentNumber || "-"}
                             </div>
                           </div>
                         </div>
                       </td>
-                      {/* course değişkeni yerine email değişkenini çağırıyoruz */}
                       <td className="px-6 py-4 text-muted-foreground">{email}</td>
                       <td className="px-6 py-4 text-xs font-mono text-muted-foreground">{date}</td>
                       <td className="px-6 py-4 text-right">
@@ -384,32 +433,16 @@ function StudentsPage() {
                           {calculatedStatus}
                         </span>
                       </td>
-                      {/* YENİ EKLENECEK SÜTUN: Silme Butonu */}
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => handleDeleteStudent(s.id || s.Id)}
-                          className="flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-semibold text-red-500 bg-red-500/10 hover:bg-red-500/20 rounded-md transition-colors border border-red-500/20 ml-auto"
-                          title="Öğrenciyi Sil"
-                        >
-                          {/* Çöp kutusu ikonu (SVG) */}
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                          </svg>
-                          Sil
-                        </button>
-                      </td>
+                      {isEditMode && (
+                        <td className="px-6 py-4 text-right">
+                          <input
+                            type="checkbox"
+                            className="size-4 rounded border-gray-300 text-foreground focus:ring-foreground cursor-pointer"
+                            checked={selectedStudentIds.includes(currentId as string | number)}
+                            onChange={() => handleSelectStudent(currentId)}
+                          />
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -423,6 +456,99 @@ function StudentsPage() {
         </div>
       </div>
 
+      {/* PROFİL MODALI */}
+      {selectedProfileStudent && (
+        <div
+          onClick={() => setSelectedProfileStudent(null)}
+          className="fixed inset-0 z-200 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm p-8 relative flex flex-col items-center animate-in zoom-in-95 duration-200"
+          >
+            <button
+              onClick={() => setSelectedProfileStudent(null)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="size-5" />
+            </button>
+
+            {/* Avatar Alanı */}
+            <div className="relative mb-4 mt-2">
+              {selectedProfileStudent.profilePictureUrl ||
+              selectedProfileStudent.ProfilePictureUrl ? (
+                <img
+                  src={
+                    selectedProfileStudent.profilePictureUrl ||
+                    selectedProfileStudent.ProfilePictureUrl
+                  }
+                  alt="Profil"
+                  className="size-24 rounded-full object-cover shadow-md border border-border"
+                />
+              ) : (
+                <div className="size-24 rounded-full bg-linear-to-tr from-stone-800 to-stone-600 text-white flex items-center justify-center text-3xl font-mono uppercase shadow-md">
+                  {(
+                    selectedProfileStudent.name ||
+                    `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`
+                  )
+                    .trim()
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
+              )}
+              <div className="absolute bottom-0 right-0 bg-foreground text-background p-1.5 rounded-full border-2 border-card shadow-sm cursor-pointer hover:scale-105 transition-transform">
+                <Camera className="size-4" />
+              </div>
+            </div>
+
+            {/* İsim ve Rol */}
+            <h2 className="text-xl font-bold text-foreground mb-1 text-center">
+              {selectedProfileStudent.name ||
+                `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`.trim() ||
+                "İsimsiz Öğrenci"}
+            </h2>
+            <p className="text-[11px] tracking-[0.2em] font-medium uppercase text-muted-foreground mb-8">
+              Öğrenci
+            </p>
+
+            {/* Kendim Hakkında & Kurslar Alanı */}
+            <div className="w-full space-y-6 text-left">
+              <div>
+                <h3 className="text-sm font-bold text-foreground/80 mb-2">Kendim Hakkında</h3>
+                <p className="text-sm text-foreground">
+                  {selectedProfileStudent.aboutMe ||
+                    selectedProfileStudent.AboutMe ||
+                    "Henüz bir açıklama eklenmemiş."}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 font-mono">
+                  No:{" "}
+                  {selectedProfileStudent.studentNumber ||
+                    selectedProfileStudent.StudentNumber ||
+                    "-"}
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-foreground/80 mb-2">Kayıtlı Kurslar</h3>
+                {getSelectedStudentEnrollments().length > 0 ? (
+                  <ul className="text-sm text-foreground space-y-1.5">
+                    {getSelectedStudentEnrollments().map((enr, idx) => (
+                      <li key={idx} className="flex items-center gap-2">
+                        <span className="size-1.5 rounded-full bg-foreground/50 shrink-0"></span>
+                        {enr.courseTitle || enr.CourseTitle}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Henüz kurs kaydı bulunmuyor.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* YENİ ÖĞRENCİ EKLEME MODALI */}
       {isModalOpen && (
         <div
           onClick={() => setIsModalOpen(false)}
@@ -468,8 +594,6 @@ function StudentsPage() {
                 />
               </div>
 
-              {/* Kayıt Olacağı Kurs alanı kaldırıldı (isteğe bağlı olarak ileride eklenecek) */}
-
               <div className="pt-4 flex gap-3">
                 <button
                   type="button"
@@ -502,31 +626,20 @@ function StudentsPage() {
           {toast.message}
         </div>
       )}
+
+      {/* SİLME ONAY MODALI */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-card border border-border rounded-xl shadow-lg w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
             <div className="flex items-start gap-4">
               <div className="size-10 shrink-0 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="8" x2="12" y2="12"></line>
-                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
+                <Trash2 className="size-5" />
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold mb-1">Silme Onayı</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Bu öğrenciyi silmek istediğinize emin misiniz?
+                  Seçili <strong>{selectedStudentIds.length}</strong> öğrenciyi silmek istediğinize
+                  emin misiniz?
                 </p>
                 <p className="text-sm text-muted-foreground mb-6">
                   Bu işlem geri alınamaz. Lütfen onaylayın veya iptal edin.
@@ -536,13 +649,13 @@ function StudentsPage() {
                     onClick={confirmDelete}
                     className="px-4 py-2 text-sm font-semibold bg-red-600 text-white hover:bg-red-700 rounded-md transition-colors"
                   >
-                    Evet
+                    Evet, Sil
                   </button>
                   <button
                     onClick={cancelDelete}
                     className="px-4 py-2 text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
                   >
-                    Hayır
+                    Hayır, İptal
                   </button>
                 </div>
               </div>
@@ -550,6 +663,6 @@ function StudentsPage() {
           </div>
         </div>
       )}
-    </> // Ana kapsayıcının kapanışı
+    </>
   );
 }

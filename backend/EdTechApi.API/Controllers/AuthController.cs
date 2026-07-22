@@ -1,5 +1,6 @@
 using EdTechApi.DataAccess.Context;
 using EdTechApi.Core.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -61,6 +62,47 @@ namespace EdTechApi.API.Controllers
             return Ok(new { token = tokenString });
         }
 
+        // Giriş yapan kullanıcının KENDİ hesap bilgilerini (Kendim Hakkında, profil fotoğrafı) döner.
+        // Bu, bir Student kaydına karşılık gelmeyen hesaplar (örn. admin) için kullanılır —
+        // /profil sayfası önce /api/students/me'yi dener, o 404 dönerse buraya düşer.
+        [Authorize]
+        [HttpGet("me")]
+        public async Task<IActionResult> GetMe()
+        {
+            var username = GetCurrentUsername();
+            if (string.IsNullOrEmpty(username)) return Unauthorized();
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null) return NotFound();
+
+            return Ok(new
+            {
+                user.Id,
+                user.Username,
+                user.Role,
+                user.AboutMe,
+                user.ProfilePictureUrl,
+            });
+        }
+
+        // Giriş yapan kullanıcının kendi "Kendim Hakkında" ve profil fotoğrafını günceller.
+        [Authorize]
+        [HttpPut("me")]
+        public async Task<IActionResult> UpdateMe([FromBody] UpdateUserProfileRequest request)
+        {
+            var username = GetCurrentUsername();
+            if (string.IsNullOrEmpty(username)) return Unauthorized();
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null) return NotFound();
+
+            user.AboutMe = request.AboutMe;
+            user.ProfilePictureUrl = request.ProfilePictureUrl;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Profil güncellendi." });
+        }
+
         private string GenerateJwtToken(User user) // Parametreyi User nesnesi alacak şekilde değiştirdik
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
@@ -82,11 +124,26 @@ namespace EdTechApi.API.Controllers
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+
+        // StudentsController'daki ile aynı mantık: "sub" claim'i genelde ClaimTypes.NameIdentifier'a
+        // eşlenir; her ihtimale karşı ikisini de ve ham "sub" değerini de kontrol ediyoruz.
+        private string? GetCurrentUsername()
+        {
+            return User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                ?? User.Identity?.Name;
+        }
     }
 
     public class LoginRequest
     {
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+    }
+
+    public class UpdateUserProfileRequest
+    {
+        public string? AboutMe { get; set; }
+        public string? ProfilePictureUrl { get; set; }
     }
 }
