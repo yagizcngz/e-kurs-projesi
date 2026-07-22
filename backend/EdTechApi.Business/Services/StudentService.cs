@@ -2,9 +2,6 @@ using EdTechApi.Business.Interfaces;
 using EdTechApi.Core.Entities;
 using EdTechApi.DataAccess.Context;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace EdTechApi.Business.Services
 {

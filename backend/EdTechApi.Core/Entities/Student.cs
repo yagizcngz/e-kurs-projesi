@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace EdTechApi.Core.Entities
 {
     public class Student

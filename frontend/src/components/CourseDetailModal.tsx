@@ -1,0 +1,533 @@
+import {
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Users,
+  User,
+  BookOpen,
+  Edit2,
+  Upload,
+  Link2,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+
+import {
+  API_BASE,
+  resolveImageSrc,
+  getCourseImage,
+  getCourseEnrollments,
+  type CourseData,
+  type EnrollmentDto,
+  type StudentLiteDto,
+} from "./courseHelpers";
+
+interface CourseDetailModalProps {
+  course: CourseData;
+  onClose: () => void;
+  canManage: boolean;
+  enrollments: EnrollmentDto[];
+  students: StudentLiteDto[];
+  onSaved: (updated: CourseData) => void;
+}
+
+export function CourseDetailModal({
+  course,
+  onClose,
+  canManage,
+  enrollments,
+  students,
+  onSaved,
+}: CourseDetailModalProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editCapacity, setEditCapacity] = useState("");
+  const [editInstructor, setEditInstructor] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [imageMode, setImageMode] = useState<"upload" | "link">("upload");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const courseId = course.id ?? course.Id;
+  useEffect(() => {
+    setIsEditing(false);
+    setStatusMessage(null);
+  }, [courseId]);
+
+  const title = course.title || course.Title || "İsimsiz Kurs";
+  const category = course.category || course.Category || "Genel";
+  const price = course.price || course.Price || "0";
+  const instructor = course.instructor || course.Instructor || "Bilinmiyor";
+  const capacity = course.maxCapacity || course.MaxCapacity;
+  const description = course.description || course.Description;
+  const imageUrl = getCourseImage(course, 0);
+  const courseEnrollments = getCourseEnrollments(course, enrollments);
+
+  const instructorProfile = (() => {
+    const target = instructor.trim().toLowerCase();
+    if (!target) return null;
+    const match = students.find((s) => {
+      const fullName = (
+        s.name || `${s.firstName || s.FirstName || ""} ${s.lastName || s.LastName || ""}`
+      )
+        .trim()
+        .toLowerCase();
+      return fullName === target;
+    });
+    if (!match) return null;
+    return {
+      photoUrl: match.profilePictureUrl || match.ProfilePictureUrl || "",
+      bio: match.aboutMe || match.AboutMe || "",
+    };
+  })();
+
+  const instructorInitials =
+    instructor
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0])
+      .join("")
+      .toUpperCase() || "E";
+
+  const handleStartEdit = () => {
+    setEditTitle(course.title || course.Title || "");
+    setEditCategory(course.category || course.Category || "");
+    setEditPrice(String(course.price ?? course.Price ?? ""));
+    setEditCapacity(String(course.maxCapacity ?? course.MaxCapacity ?? ""));
+    setEditInstructor(course.instructor || course.Instructor || "");
+    setEditDescription(course.description || course.Description || "");
+    setEditImageUrl(course.imageUrl || course.ImageUrl || course.image || course.Image || "");
+    setImageMode("upload");
+    setStatusMessage(null);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setStatusMessage(null);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 20_000_000) {
+      showStatusToast("error", "Fotoğraf yüklenemedi. Lütfen tekrar deneyin.");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setStatusMessage(null);
+    try {
+      const token = localStorage.getItem("jwt_token");
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(`${API_BASE}/api/uploads/course-image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setEditImageUrl(data.url);
+      } else {
+        const errText = await response.text();
+        console.error("Fotoğraf yüklenemedi:", errText);
+        setStatusMessage({ type: "error", text: "Fotoğraf yüklenemedi. Lütfen tekrar deneyin." });
+      }
+    } catch (error) {
+      console.error(error);
+      showStatusToast("error", "Sunucuya ulaşılamıyor.");
+    } finally {
+      setIsUploadingImage(false);
+      // Aynı dosyayı tekrar seçebilmek için input'u sıfırla
+      e.target.value = "";
+    }
+  };
+
+  const showStatusToast = (type: "success" | "error", text: string) => {
+    setStatusMessage({ type, text });
+    setTimeout(() => setStatusMessage(null), 3000);
+  };
+
+  const handleRemoveImage = () => setEditImageUrl("");
+
+  const handleSave = async () => {
+    const courseId = course.id ?? course.Id;
+    if (!courseId) {
+      showStatusToast("error", "Kurs kimliği bulunamadı.");
+      return;
+    }
+    if (!editTitle.trim()) {
+      showStatusToast("error", "Kurs adı boş olamaz.");
+      return;
+    }
+
+    setIsSaving(true);
+    setStatusMessage(null);
+    try {
+      const token = localStorage.getItem("jwt_token");
+      const response = await fetch(`${API_BASE}/api/courses/${courseId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          Title: editTitle,
+          Category: editCategory,
+          Instructor: editInstructor,
+          MaxCapacity: Number(editCapacity) || 0,
+          Price: Number(editPrice) || 0,
+          Description: editDescription,
+          ImageUrl: editImageUrl,
+        }),
+      });
+
+      if (response.ok) {
+        const updated: CourseData = {
+          ...course,
+          title: editTitle,
+          Title: editTitle,
+          category: editCategory,
+          Category: editCategory,
+          instructor: editInstructor,
+          Instructor: editInstructor,
+          maxCapacity: Number(editCapacity) || 0,
+          MaxCapacity: Number(editCapacity) || 0,
+          price: Number(editPrice) || 0,
+          Price: Number(editPrice) || 0,
+          description: editDescription,
+          Description: editDescription,
+          imageUrl: editImageUrl,
+          ImageUrl: editImageUrl,
+        };
+        onSaved(updated);
+        setIsEditing(false);
+        showStatusToast("success", "Kurs başarıyla güncellendi.");
+      } else {
+        const errorData = await response.text();
+        console.error("Kurs güncellenirken backend hatası:", errorData);
+        showStatusToast("error", "Kurs güncellenirken bir hata oluştu.");
+      }
+    } catch (error) {
+      console.error(error);
+      showStatusToast("error", "Sunucuya ulaşılamıyor.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const editPreviewSrc = editImageUrl ? resolveImageSrc(editImageUrl) : getCourseImage(course, 0);
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-200 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200"
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 bg-background/80 backdrop-blur-sm rounded-full p-1.5 text-foreground hover:bg-background transition-colors"
+        >
+          <X className="size-5" />
+        </button>
+
+        <div className="w-full aspect-video relative overflow-hidden bg-neutral-100">
+          <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.75) 100%)",
+            }}
+          />
+          <div className="absolute bottom-4 left-6 right-6 text-white">
+            <span className="text-[10px] font-mono uppercase tracking-widest opacity-90">
+              {category}
+            </span>
+            <h2 className="text-2xl font-bold leading-tight">{title}</h2>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background text-xs font-bold">
+                ₺{price}
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background text-xs font-bold">
+                <Users className="size-3.5" />
+                {capacity
+                  ? `${courseEnrollments.length}/${capacity} Öğrenci`
+                  : `${courseEnrollments.length} Öğrenci Kayıtlı`}
+              </div>
+            </div>
+
+            {canManage && !isEditing && (
+              <button
+                onClick={handleStartEdit}
+                className="flex items-center gap-1.5 text-xs font-bold border border-border rounded-md px-3 py-1.5 hover:bg-foreground/5 transition-colors"
+              >
+                <Edit2 className="size-3.5" />
+                Kursu Düzenle
+              </button>
+            )}
+          </div>
+
+          {isEditing ? (
+            <div className="space-y-4 border-t border-border pt-6">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Kurs Fotoğrafı</label>
+                <div className="flex gap-4">
+                  <div className="size-20 rounded-md overflow-hidden bg-neutral-100 border border-border shrink-0">
+                    <img
+                      src={editPreviewSrc}
+                      alt="Önizleme"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2 min-w-0">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setImageMode("upload")}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-md border transition-colors ${
+                          imageMode === "upload"
+                            ? "border-foreground bg-foreground/5"
+                            : "border-border hover:bg-foreground/5"
+                        }`}
+                      >
+                        <Upload className="size-3.5" />
+                        Dosya Yükle
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageMode("link")}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-md border transition-colors ${
+                          imageMode === "link"
+                            ? "border-foreground bg-foreground/5"
+                            : "border-border hover:bg-foreground/5"
+                        }`}
+                      >
+                        <Link2 className="size-3.5" />
+                        Link Yapıştır
+                      </button>
+                    </div>
+
+                    {imageMode === "upload" ? (
+                      <label className="flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold border border-dashed border-border rounded-md cursor-pointer hover:bg-foreground/5 transition-colors">
+                        {isUploadingImage
+                          ? "Yükleniyor..."
+                          : "Bilgisayardan seç (jpg, png, gif, webp)"}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          className="hidden"
+                          disabled={isUploadingImage}
+                          onChange={handleFileChange}
+                        />
+                      </label>
+                    ) : (
+                      <input
+                        type="text"
+                        value={editImageUrl}
+                        onChange={(e) => setEditImageUrl(e.target.value)}
+                        placeholder="https://ornek.com/fotograf.jpg"
+                        className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                      />
+                    )}
+
+                    {editImageUrl && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="text-[11px] font-mono text-muted-foreground hover:text-red-600 transition-colors"
+                      >
+                        Fotoğrafı kaldır (stok fotoğrafa dön)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Kurs Adı</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Kategori</label>
+                  <input
+                    type="text"
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Eğitmen</label>
+                  <input
+                    type="text"
+                    value={editInstructor}
+                    onChange={(e) => setEditInstructor(e.target.value)}
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Kapasite</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editCapacity}
+                    onChange={(e) => setEditCapacity(e.target.value)}
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Fiyat (₺)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editPrice}
+                    onChange={(e) => setEditPrice(e.target.value)}
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Kurs İçeriği</label>
+                <textarea
+                  rows={4}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Kursta neler işleneceğine dair kısa bir açıklama yazın..."
+                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  disabled={isSaving}
+                  className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors disabled:opacity-60"
+                >
+                  İptal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSaving || isUploadingImage}
+                  className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity disabled:opacity-60"
+                >
+                  {isSaving ? "Kaydediliyor..." : "Kaydet"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <h3 className="text-sm font-bold text-foreground/80 mb-2 flex items-center gap-2">
+                  <BookOpen className="size-4" />
+                  Kurs İçeriği
+                </h3>
+                <p className="text-sm text-muted-foreground leading-6">
+                  {description ||
+                    `Bu kurs "${category}" kategorisinde yer almaktadır. Eğitmen tarafından henüz detaylı bir kurs içeriği eklenmemiş.`}
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-foreground/80 mb-3 flex items-center gap-2">
+                  <User className="size-4" />
+                  Eğitmen Profili
+                </h3>
+                <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-4">
+                  {instructorProfile?.photoUrl ? (
+                    <img
+                      src={resolveImageSrc(instructorProfile.photoUrl)}
+                      alt={instructor}
+                      className="size-14 rounded-full object-cover border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="size-14 rounded-full bg-linear-to-tr from-stone-800 to-stone-600 text-white flex items-center justify-center text-lg font-mono uppercase shrink-0">
+                      {instructorInitials}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-bold">{instructor}</p>
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-widest mb-1">
+                      Eğitmen
+                    </p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {instructorProfile?.bio || "Bu eğitmen henüz bir açıklama eklemedi."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {courseEnrollments.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-bold text-foreground/80 mb-2 flex items-center gap-2">
+                    <Users className="size-4" />
+                    Kayıtlı Öğrenciler
+                  </h3>
+                  <ul className="text-sm text-foreground space-y-1.5">
+                    {courseEnrollments.slice(0, 8).map((enr, idx) => (
+                      <li key={idx} className="flex items-center gap-2">
+                        <span className="size-1.5 rounded-full bg-foreground/50 shrink-0"></span>
+                        {enr.studentFullName || enr.StudentFullName}
+                      </li>
+                    ))}
+                    {courseEnrollments.length > 8 && (
+                      <li className="text-xs text-muted-foreground pl-3.5">
+                        +{courseEnrollments.length - 8} öğrenci daha
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      {statusMessage && (
+        <div
+          className={`fixed bottom-6 right-6 z-300 flex items-center gap-3 rounded-lg px-5 py-3.5 text-sm font-bold text-white shadow-xl ${
+            statusMessage.type === "success" ? "bg-emerald-600" : "bg-red-600"
+          }`}
+        >
+          {statusMessage.type === "success" ? (
+            <CheckCircle2 className="w-5 h-5" />
+          ) : (
+            <AlertCircle className="w-5 h-5" />
+          )}
+          {statusMessage.text}
+        </div>
+      )}
+    </div>
+  );
+}

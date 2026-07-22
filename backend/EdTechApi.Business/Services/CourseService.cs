@@ -30,6 +30,26 @@ namespace EdTechApi.Business.Services
             await _context.SaveChangesAsync();
         }
 
+        public async Task<bool> UpdateCourseAsync(int id, Course updatedCourse)
+        {
+            var course = await _context.Courses.FindAsync(id);
+            if (course == null)
+            {
+                return false;
+            }
+
+            course.Title = updatedCourse.Title;
+            course.MaxCapacity = updatedCourse.MaxCapacity;
+            course.Price = updatedCourse.Price;
+            course.Instructor = updatedCourse.Instructor;
+            course.Category = updatedCourse.Category;
+            course.Description = updatedCourse.Description;
+            course.ImageUrl = updatedCourse.ImageUrl; 
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         public async Task DeleteCourseAsync(int id)
         {
             var course = await _context.Courses.FindAsync(id);

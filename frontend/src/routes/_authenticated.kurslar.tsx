@@ -2,28 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "../components/PageHeader";
 import { Plus, X, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { CourseDetailModal } from "../components/CourseDetailModal";
+import {
+  getCourseImage,
+  type CourseData,
+  type EnrollmentDto,
+  type StudentLiteDto,
+} from "../components/courseHelpers";
 
 export const Route = createFileRoute("/_authenticated/kurslar")({
   component: CoursesPage,
 });
-
-interface CourseData {
-  id?: string | number;
-  Id?: string | number;
-  title?: string;
-  Title?: string;
-  category?: string;
-  Category?: string;
-  price?: string | number;
-  Price?: string | number;
-  instructor?: string;
-  Instructor?: string;
-  maxCapacity?: string | number;
-  MaxCapacity?: string | number;
-  image?: string;
-  Image?: string;
-  thumbnail?: string;
-}
 
 const parseJwt = (token: string) => {
   try {
@@ -74,55 +63,6 @@ const guessCategory = (title: string) => {
   return "Genel";
 };
 
-const getCourseImage = (c: CourseData, index: number) => {
-  const explicit = c.image || c.Image || c.thumbnail;
-  if (explicit) return explicit;
-
-  const titleRaw = (c.title || c.Title || "").toString();
-  const categoryRaw = (c.category || c.Category || "").toString();
-  const titleLower = (titleRaw + " " + categoryRaw).toLowerCase();
-
-  const mappingSeeds: { keywords: string[]; seed: string }[] = [
-    { keywords: ["matematik", "mat"], seed: "mathematics" },
-    { keywords: ["fizik"], seed: "physics" },
-    { keywords: ["kimya"], seed: "chemistry" },
-    { keywords: ["biyoloji", "molekul", "biyo"], seed: "biology" },
-    { keywords: ["react", "frontend", "javascript", "typescript"], seed: "programming" },
-    { keywords: ["c#", "csharp", "dotnet", "backend"], seed: "code" },
-    { keywords: ["tarih"], seed: "history" },
-    { keywords: ["sanat", "tasar", "tasarım"], seed: "art" },
-    { keywords: ["ekonomi"], seed: "economics" },
-    { keywords: ["psikoloji"], seed: "psychology" },
-    { keywords: ["spor", "yoga"], seed: "fitness" },
-  ];
-
-  for (const m of mappingSeeds) {
-    for (const kw of m.keywords) {
-      if (titleLower.includes(kw)) {
-        return `https://picsum.photos/seed/${encodeURIComponent(m.seed)}/800/450`;
-      }
-    }
-  }
-
-  const fallbackPool = [
-    "education",
-    "books",
-    "city",
-    "nature",
-    "technology",
-    "abstract",
-    "coffee",
-    "architecture",
-    "ocean",
-    "mountains",
-  ];
-  const titleSeed = titleRaw.trim()
-    ? titleRaw.trim().slice(0, 40)
-    : fallbackPool[index % fallbackPool.length];
-  const seed = encodeURIComponent(titleSeed.replace(/\s+/g, "-").toLowerCase());
-  return `https://picsum.photos/seed/${seed}/800/450`;
-};
-
 function CoursesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dbCourses, setDbCourses] = useState<CourseData[]>([]);
@@ -134,6 +74,12 @@ function CoursesPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newCapacity, setNewCapacity] = useState("");
   const [newPrice, setNewPrice] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+
+  // KURS DETAY MODALI İÇİN STATE'LER (düzenleme formu artık CourseDetailModal içinde)
+  const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
+  const [dbEnrollments, setDbEnrollments] = useState<EnrollmentDto[]>([]);
+  const [dbStudents, setDbStudents] = useState<StudentLiteDto[]>([]);
 
   // ÇOKLU SEÇİM VE DÜZENLEME MODU STATE'LERİ
   const [isEditMode, setIsEditMode] = useState(false);
@@ -192,10 +138,51 @@ function CoursesPage() {
     }
   }, []);
 
+  // Kurs detay modalında kayıtlı öğrenci sayısını ve eğitmen profilini gösterebilmek için
+  useEffect(() => {
+    const token = localStorage.getItem("jwt_token");
+    const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+    const fetchEnrollments = async () => {
+      try {
+        const res = await fetch("http://localhost:5157/api/enrollments", { headers });
+        if (res.ok) setDbEnrollments(await res.json());
+      } catch (error) {
+        console.error("Kayıtlar yüklenirken hata:", error);
+      }
+    };
+
+    const fetchStudentsForProfiles = async () => {
+      try {
+        const res = await fetch("http://localhost:5157/api/students", { headers });
+        if (res.ok) setDbStudents(await res.json());
+      } catch (error) {
+        console.error("Eğitmen profili için kullanıcı listesi alınamadı:", error);
+      }
+    };
+
+    fetchEnrollments();
+    fetchStudentsForProfiles();
+  }, []);
+
+  const handleCloseDetailModal = () => {
+    setSelectedCourse(null);
+  };
+
+  // Modal içinde bir kurs güncellendiğinde, hem açık olan detay görünümünü hem de
+  // arkadaki kart listesini (dbCourses) güncel tutuyoruz.
+  const handleCourseSaved = (updated: CourseData) => {
+    setSelectedCourse(updated);
+    setDbCourses((prev) =>
+      prev.map((c) => ((c.id ?? c.Id) === (updated.id ?? updated.Id) ? { ...c, ...updated } : c)),
+    );
+  };
+
   const handleCloseModal = () => {
     setNewTitle("");
     setNewCapacity("");
     setNewPrice("");
+    setNewDescription("");
     setIsModalOpen(false);
   };
 
@@ -219,6 +206,7 @@ function CoursesPage() {
           Instructor: instructorName,
           MaxCapacity: Number(newCapacity) || 0,
           Price: Number(newPrice) || 0,
+          Description: newDescription,
         }),
       });
 
@@ -388,8 +376,10 @@ function CoursesPage() {
               return (
                 <div
                   key={currentId || index}
+                  onClick={() => setSelectedCourse(c)}
+                  title="Kurs detaylarını görüntüle"
                   // Seçim yapıldıysa karta ekstra çerçeve ve arka plan rengi ekliyoruz
-                  className={`group bg-card border transition-colors rounded-md overflow-hidden shadow-sm flex flex-col ${
+                  className={`group bg-card border transition-colors rounded-md overflow-hidden shadow-sm flex flex-col cursor-pointer ${
                     isSelected
                       ? "border-foreground bg-foreground/5 ring-1 ring-foreground"
                       : "border-border hover:border-accent"
@@ -419,7 +409,10 @@ function CoursesPage() {
 
                     {/* SADECE DÜZENLEME MODUNDAYKEN GÖRÜNECEK ONAY KUTUSU (Sil Butonu Yerine) */}
                     {canManage && isEditMode && (
-                      <label className="mt-4 flex items-center justify-center gap-2 px-3 py-2 text-[11px] font-mono uppercase bg-background border border-border hover:bg-muted rounded-md cursor-pointer transition-colors">
+                      <label
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-4 flex items-center justify-center gap-2 px-3 py-2 text-[11px] font-mono uppercase bg-background border border-border hover:bg-muted rounded-md cursor-pointer transition-colors"
+                      >
                         <input
                           type="checkbox"
                           className="size-4 rounded border-gray-300 text-foreground focus:ring-foreground cursor-pointer"
@@ -436,6 +429,17 @@ function CoursesPage() {
           )}
         </div>
       </div>
+
+      {selectedCourse && (
+        <CourseDetailModal
+          course={selectedCourse}
+          onClose={handleCloseDetailModal}
+          canManage={canManage}
+          enrollments={dbEnrollments}
+          students={dbStudents}
+          onSaved={handleCourseSaved}
+        />
+      )}
 
       {isModalOpen && (
         <div
@@ -495,6 +499,17 @@ function CoursesPage() {
                     placeholder="Örn: 399.99"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Kurs İçeriği (opsiyonel)</label>
+                <textarea
+                  rows={3}
+                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors resize-none"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  placeholder="Kursta neler işleneceğine dair kısa bir açıklama yazın..."
+                />
               </div>
 
               <div className="pt-4 flex gap-3">

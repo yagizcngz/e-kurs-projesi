@@ -42,6 +42,18 @@ namespace EdTechApi.API.Controllers
             return CreatedAtAction(nameof(GetById), new { id = newCourse.Id }, newCourse);
         }
 
+        [Authorize(Roles = "Admin")]
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateCourse(int id, [FromBody] Course updatedCourse)
+        {
+            var success = await _courseService.UpdateCourseAsync(id, updatedCourse);
+            if (!success)
+            {
+                return NotFound("Kurs bulunamadı.");
+            }
+            return NoContent();
+        }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCourse(int id)
         {

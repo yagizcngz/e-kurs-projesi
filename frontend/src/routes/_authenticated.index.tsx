@@ -1,11 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader, SectionHeader } from "../components/PageHeader";
 import { useState, useEffect } from "react";
-import { statusStyles } from "../lib/mock-data";
+import { CourseDetailModal } from "../components/CourseDetailModal";
+import { getCourseImage, getCourseEnrollments, type CourseData } from "../components/courseHelpers";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: DashboardPage,
 });
+
+const parseJwt = (token: string) => {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map(function (c) {
+          return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+        })
+        .join(""),
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+};
 
 interface StudentData {
   id?: string | number;
@@ -27,74 +46,6 @@ interface StudentData {
   Status?: string;
   initials?: string;
 }
-
-interface CourseData {
-  id?: string | number;
-  Id?: string | number;
-  title?: string;
-  Title?: string;
-  category?: string;
-  Category?: string;
-  price?: string | number;
-  Price?: string | number;
-  instructor?: string;
-  Instructor?: string;
-  students?: number;
-  Students?: number;
-  image?: string;
-  Image?: string;
-  thumbnail?: string;
-}
-
-const getCourseImage = (c: CourseData, index: number) => {
-  const explicit = c.image || c.Image || c.thumbnail;
-  if (explicit) return explicit;
-
-  const titleRaw = (c.title || c.Title || "").toString();
-  const categoryRaw = (c.category || c.Category || "").toString();
-  const titleLower = (titleRaw + " " + categoryRaw).toLowerCase();
-
-  const mappingSeeds: { keywords: string[]; seed: string }[] = [
-    { keywords: ["matematik", "mat"], seed: "mathematics" },
-    { keywords: ["fizik"], seed: "physics" },
-    { keywords: ["kimya"], seed: "chemistry" },
-    { keywords: ["biyoloji", "molekul", "biyo"], seed: "biology" },
-    { keywords: ["react", "frontend", "javascript", "typescript"], seed: "programming" },
-    { keywords: ["c#", "csharp", "dotnet", "backend"], seed: "code" },
-    { keywords: ["tarih"], seed: "history" },
-    { keywords: ["sanat", "tasar", "tasarım"], seed: "art" },
-    { keywords: ["ekonomi"], seed: "economics" },
-    { keywords: ["psikoloji"], seed: "psychology" },
-    { keywords: ["spor", "yoga"], seed: "fitness" },
-  ];
-
-  for (const m of mappingSeeds) {
-    for (const kw of m.keywords) {
-      if (titleLower.includes(kw)) {
-        return `https://picsum.photos/seed/${encodeURIComponent(m.seed)}/800/450`;
-      }
-    }
-  }
-
-  const fallbackPool = [
-    "education",
-    "books",
-    "city",
-    "nature",
-    "technology",
-    "abstract",
-    "coffee",
-    "architecture",
-    "ocean",
-    "mountains",
-  ];
-
-  const titleSeed = titleRaw.trim()
-    ? titleRaw.trim().slice(0, 40)
-    : fallbackPool[index % fallbackPool.length];
-  const seed = encodeURIComponent(titleSeed.replace(/\s+/g, "-").toLowerCase());
-  return `https://picsum.photos/seed/${seed}/800/450`;
-};
 
 interface EnrollmentData {
   id?: string | number;
@@ -149,9 +100,14 @@ function DashboardPage() {
 
   const [showAllPopular, setShowAllPopular] = useState(false);
 
+  // Kurs tanıtım/düzenleme modalı için (Kurslar sayfasındakiyle aynı bileşen)
+  const [currentUser, setCurrentUser] = useState({ name: "Bilinmiyor", role: "Öğrenci" });
+  const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
+
   useEffect(() => {
+    const token = localStorage.getItem("jwt_token");
+
     const fetchDashboardData = async () => {
-      const token = localStorage.getItem("jwt_token");
       const headers = { Authorization: `Bearer ${token}` };
 
       try {
@@ -171,7 +127,35 @@ function DashboardPage() {
       }
     };
     fetchDashboardData();
+
+    if (token) {
+      const payload = parseJwt(token);
+      if (payload) {
+        const name =
+          payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ||
+          payload.name ||
+          payload.unique_name ||
+          "Bilinmeyen Eğitmen";
+        const role =
+          payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
+          payload.role ||
+          "Öğrenci";
+        setCurrentUser({ name, role });
+      }
+    }
   }, []);
+
+  const canManage =
+    currentUser.role === "Eğitmen" ||
+    currentUser.role === "Admin" ||
+    currentUser.role === "superadmin";
+
+  const handleCourseSaved = (updated: CourseData) => {
+    setSelectedCourse(updated);
+    setDbCourses((prev) =>
+      prev.map((c) => ((c.id ?? c.Id) === (updated.id ?? updated.Id) ? { ...c, ...updated } : c)),
+    );
+  };
 
   const searchLower = searchTerm.toLowerCase();
 
@@ -195,8 +179,8 @@ function DashboardPage() {
   });
 
   const sortedPopularCourses = [...filteredCourses].sort((a, b) => {
-    const studentsA = a.students || a.Students || 0;
-    const studentsB = b.students || b.Students || 0;
+    const studentsA = getCourseEnrollments(a, dbEnrollments).length;
+    const studentsB = getCourseEnrollments(b, dbEnrollments).length;
     return studentsB - studentsA;
   });
 
@@ -206,14 +190,6 @@ function DashboardPage() {
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
-
-  // Geçen ayın tarihini hesapla
-  let lastMonth = currentMonth - 1;
-  let lastMonthYear = currentYear;
-  if (lastMonth < 0) {
-    lastMonth = 11;
-    lastMonthYear -= 1;
-  }
 
   // 30 ve 60 gün öncesinin sınırları
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -258,34 +234,42 @@ function DashboardPage() {
         : 0
       : ((enrollmentsLast30 - enrollmentsPrev30) / enrollmentsPrev30) * 100;
 
-  // 3. AYLIK GELİR VE GELİR BÜYÜMESİ (Sadece aktif aya ait gelirler)
-  let revThisMonth = 0;
-  let revLastMonth = 0;
+  // 3. AYLIK GELİR (Sistemdeki TÜM aktif kayıtlar, kursun ŞU ANKİ/güncel fiyatı üzerinden)
+  // Not: Kayıt hangi ayda yapılmış olursa olsun, öğrenci hâlâ o kursa kayıtlıysa gelire dahildir.
+  // Bu sayede bir kursun fiyatını değiştirdiğinde, o kursa kayıtlı tüm öğrenciler üzerinden
+  // hesap anında güncellenir (eskiden sadece "bu ay/geçen ay kaydolanlar" sayılıyordu).
+  const startOfThisMonth = new Date(currentYear, currentMonth, 1);
+
+  let revTotalNow = 0;
+  let revTotalAsOfLastMonth = 0;
+
   dbEnrollments.forEach((e) => {
+    const enrolledCourseTitle = e.courseTitle || e.CourseTitle || "";
+    const matchedCourse = dbCourses.find((c) => {
+      const courseTitle = c.title || c.Title || "";
+      return courseTitle.toLowerCase().trim() === enrolledCourseTitle.toLowerCase().trim();
+    });
+
+    if (!matchedCourse) return;
+
+    const priceString = String(matchedCourse.price || matchedCourse.Price || "0");
+    const numericPrice = parseFloat(priceString.replace(/[^\d.]/g, "")) || 0;
+
+    // Sistemdeki TÜM kayıtlar, kursun güncel fiyatıyla toplanıyor
+    revTotalNow += numericPrice;
+
+    // "Geçen aya göre" büyüme kıyaslaması için: bu ay içinde eklenmemiş
+    // (yani geçen ay sonu itibarıyla zaten var olan) kayıtları ayrıca topluyoruz
     const dRaw = e.enrollmentDate || e.EnrollmentDate || e.date || e.Date;
     const d = dRaw ? new Date(dRaw) : new Date();
-    const isThisMonth = d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    const isLastMonth = d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
-
-    if (isThisMonth || isLastMonth) {
-      const enrolledCourseTitle = e.courseTitle || e.CourseTitle || "";
-      const matchedCourse = dbCourses.find((c) => {
-        const courseTitle = c.title || c.Title || "";
-        return courseTitle.toLowerCase().trim() === enrolledCourseTitle.toLowerCase().trim();
-      });
-
-      if (matchedCourse) {
-        const priceString = String(matchedCourse.price || matchedCourse.Price || "0");
-        const numericPrice = parseFloat(priceString.replace(/[^\d.]/g, "")) || 0;
-        if (isThisMonth) revThisMonth += numericPrice;
-        if (isLastMonth) revLastMonth += numericPrice;
-      }
+    if (d < startOfThisMonth) {
+      revTotalAsOfLastMonth += numericPrice;
     }
   });
 
   // Gelirlerin Admin Komisyonu (%10)
-  const adminRevThisMonth = revThisMonth * 0.1;
-  const adminRevLastMonth = revLastMonth * 0.1;
+  const adminRevThisMonth = revTotalNow * 0.1;
+  const adminRevLastMonth = revTotalAsOfLastMonth * 0.1;
   const revenueGrowth =
     adminRevLastMonth === 0
       ? adminRevThisMonth > 0
@@ -510,12 +494,14 @@ function DashboardPage() {
                 const category = c.category || c.Category || "GENEL";
                 const price = c.price || c.Price || "₺0";
                 const instructor = c.instructor || c.Instructor || "Bilinmiyor";
-                const studentsCount = c.students || c.Students || 0;
+                const studentsCount = getCourseEnrollments(c, dbEnrollments).length;
 
                 return (
                   <div
                     key={c.id || c.Id || index}
-                    className="group bg-card border border-border hover:border-accent transition-colors rounded-md overflow-hidden shadow-sm"
+                    onClick={() => setSelectedCourse(c)}
+                    title="Kurs detaylarını görüntüle"
+                    className="group bg-card border border-border hover:border-accent transition-colors rounded-md overflow-hidden shadow-sm cursor-pointer"
                   >
                     <div className="w-full aspect-video relative overflow-hidden bg-muted">
                       <img
@@ -551,6 +537,17 @@ function DashboardPage() {
           </div>
         </section>
       </div>
+
+      {selectedCourse && (
+        <CourseDetailModal
+          course={selectedCourse}
+          onClose={() => setSelectedCourse(null)}
+          canManage={canManage}
+          enrollments={dbEnrollments}
+          students={dbStudents}
+          onSaved={handleCourseSaved}
+        />
+      )}
     </>
   );
 }

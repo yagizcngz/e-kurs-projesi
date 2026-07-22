@@ -629,7 +629,7 @@ function StudentsPage() {
 
       {/* SİLME ONAY MODALI */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-card border border-border rounded-xl shadow-lg w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
             <div className="flex items-start gap-4">
               <div className="size-10 shrink-0 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
