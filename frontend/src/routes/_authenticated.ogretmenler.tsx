@@ -1,88 +1,64 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "../components/PageHeader";
-import {
-  Plus,
-  X,
-  CheckCircle2,
-  AlertCircle,
-  Edit2,
-  Trash2,
-  Camera,
-  Upload,
-  Link2,
-} from "lucide-react";
+import { Plus, X, CheckCircle2, AlertCircle, Edit2, Trash2, Upload, Link2 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-export const Route = createFileRoute("/_authenticated/ogrenciler")({
-  component: StudentsPage,
+export const Route = createFileRoute("/_authenticated/ogretmenler")({
+  component: TeachersPage,
 });
 
-interface StudentData {
+interface TeacherData {
   id?: string | number;
   Id?: string | number;
-  name?: string;
   firstName?: string;
   FirstName?: string;
   lastName?: string;
   LastName?: string;
   email?: string;
   Email?: string;
-  course?: string;
-  Course?: string;
+  branch?: string;
+  Branch?: string;
   date?: string;
   Date?: string;
-  status?: string;
-  Status?: string;
-  initials?: string;
-  studentNumber?: string;
-  StudentNumber?: string;
   profilePictureUrl?: string;
   ProfilePictureUrl?: string;
   aboutMe?: string;
   AboutMe?: string;
 }
 
-interface EnrollmentData {
+interface CourseData {
   id?: string | number;
   Id?: string | number;
-  studentId?: string | number;
-  StudentId?: string | number;
-  courseId?: string | number;
-  CourseId?: string | number;
-  enrollmentDate?: string;
-  EnrollmentDate?: string;
-  date?: string;
-  Date?: string;
-  studentFullName?: string;
-  StudentFullName?: string;
-  studentNumber?: string;
-  StudentNumber?: string;
-  courseTitle?: string;
-  CourseTitle?: string;
+  title?: string;
+  Title?: string;
+  instructor?: string;
+  Instructor?: string;
 }
 
-function StudentsPage() {
+function TeachersPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [dbStudents, setDbStudents] = useState<StudentData[]>([]);
-  const [dbEnrollments, setDbEnrollments] = useState<EnrollmentData[]>([]);
+  const [dbTeachers, setDbTeachers] = useState<TeacherData[]>([]);
+  const [dbCourses, setDbCourses] = useState<CourseData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [newBranch, setNewBranch] = useState("");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // ÇOKLU SEÇİM VE DÜZENLEME MODU STATE'LERİ
   const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedStudentIds, setSelectedStudentIds] = useState<(string | number)[]>([]);
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState<(string | number)[]>([]);
 
   // PROFİL GÖRÜNTÜLEME İÇİN STATE
-  const [selectedProfileStudent, setSelectedProfileStudent] = useState<StudentData | null>(null);
+  const [selectedProfileTeacher, setSelectedProfileTeacher] = useState<TeacherData | null>(null);
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editBranch, setEditBranch] = useState("");
   const [editAboutMe, setEditAboutMe] = useState("");
   const [editProfilePictureUrl, setEditProfilePictureUrl] = useState("");
   const [profileImageMode, setProfileImageMode] = useState<"upload" | "link">("upload");
@@ -96,11 +72,11 @@ function StudentsPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const fetchStudents = async () => {
+  const fetchTeachers = async () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem("jwt_token");
-      const response = await fetch("http://localhost:5157/api/students", {
+      const response = await fetch("http://localhost:5157/api/teachers", {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -109,95 +85,99 @@ function StudentsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setDbStudents(data);
+        setDbTeachers(data);
       } else {
-        // Backend'den gelen gerçek hatayı görebilmek için ekliyoruz
         const errorText = await response.text();
-        console.error(`Öğrenciler alınamadı (status ${response.status}):`, errorText);
+        console.error(`Öğretmenler alınamadı (status ${response.status}):`, errorText);
       }
     } catch (error) {
-      console.error("Öğrenciler yüklenirken hata:", error);
+      console.error("Öğretmenler yüklenirken hata:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchStudents();
+    fetchTeachers();
 
-    const fetchEnrollments = async () => {
+    const fetchCourses = async () => {
       const token = localStorage.getItem("jwt_token");
       const headers = { Authorization: `Bearer ${token}` };
 
       try {
-        const res = await fetch("http://localhost:5157/api/enrollments", { headers });
+        const res = await fetch("http://localhost:5157/api/courses", { headers });
         if (res.ok) {
-          setDbEnrollments(await res.json());
+          setDbCourses(await res.json());
         }
       } catch (error) {
-        console.error("Kayıtlar çekilirken hata:", error);
+        console.error("Kurslar çekilirken hata:", error);
       }
     };
 
-    fetchEnrollments();
+    fetchCourses();
   }, []);
 
   useEffect(() => {
     setIsEditingProfile(false);
-  }, [selectedProfileStudent?.id ?? selectedProfileStudent?.Id]);
+  }, [selectedProfileTeacher?.id ?? selectedProfileTeacher?.Id]);
 
   const toggleEditMode = () => {
     setIsEditMode(!isEditMode);
-    setSelectedStudentIds([]);
+    setSelectedTeacherIds([]);
   };
 
-  const handleSelectStudent = (id: string | number | undefined) => {
+  const handleSelectTeacher = (id: string | number | undefined) => {
     if (!id) return;
-    setSelectedStudentIds((prev) =>
-      prev.includes(id) ? prev.filter((studentId) => studentId !== id) : [...prev, id],
+    setSelectedTeacherIds((prev) =>
+      prev.includes(id) ? prev.filter((teacherId) => teacherId !== id) : [...prev, id],
     );
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      const allFilteredIds = filteredStudents
-        .map((s) => s.id || s.Id)
+      const allFilteredIds = filteredTeachers
+        .map((t) => t.id || t.Id)
         .filter((id): id is string | number => id !== undefined);
-      setSelectedStudentIds(allFilteredIds);
+      setSelectedTeacherIds(allFilteredIds);
     } else {
-      setSelectedStudentIds([]);
+      setSelectedTeacherIds([]);
     }
   };
 
   const confirmDelete = async () => {
-    if (selectedStudentIds.length === 0) return;
+    if (selectedTeacherIds.length === 0) return;
 
     try {
       const token = localStorage.getItem("jwt_token");
-      const headers = {
-        Authorization: `Bearer ${token}`,
-      };
 
-      await Promise.all(
-        selectedStudentIds.map((id) =>
-          fetch(`http://localhost:5157/api/students/${id}`, {
-            method: "DELETE",
-            headers,
-          }),
-        ),
+      // Backend'de bunun için ayrı bir toplu silme uç noktası var, tek tek istek atmaya gerek yok.
+      const response = await fetch("http://localhost:5157/api/teachers/bulk-delete", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(selectedTeacherIds),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Toplu silme hatası:", errorText);
+        showToast("Öğretmenler silinirken bir hata oluştu.", "error");
+        return;
+      }
+
+      setDbTeachers((prevTeachers) =>
+        prevTeachers.filter((t) => !selectedTeacherIds.includes(t.id || (t.Id as string | number))),
       );
 
-      setDbStudents((prevStudents) =>
-        prevStudents.filter((s) => !selectedStudentIds.includes(s.id || (s.Id as string | number))),
-      );
-
-      showToast(`${selectedStudentIds.length} öğrenci başarıyla silindi!`);
+      showToast(`${selectedTeacherIds.length} öğretmen başarıyla silindi!`);
       setIsDeleteModalOpen(false);
-      setSelectedStudentIds([]);
+      setSelectedTeacherIds([]);
       setIsEditMode(false);
     } catch (error) {
       console.error("Silme hatası:", error);
-      showToast("Öğrenciler silinirken bir hata oluştu.", "error");
+      showToast("Öğretmenler silinirken bir hata oluştu.", "error");
     }
   };
 
@@ -205,7 +185,7 @@ function StudentsPage() {
     setIsDeleteModalOpen(false);
   };
 
-  const handleAddStudent = async (e: React.FormEvent) => {
+  const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const nameParts = newName.trim().split(/\s+/);
@@ -216,25 +196,10 @@ function StudentsPage() {
 
     const lastName = nameParts.pop();
     const firstName = nameParts.join(" ");
-    const yearPrefix = new Date().getFullYear().toString().slice(-2);
-
-    let maxSequence = 0;
-    dbStudents.forEach((s) => {
-      const numStr = s.studentNumber || s.StudentNumber || "";
-      if (numStr.startsWith(yearPrefix)) {
-        const seq = parseInt(numStr.slice(2), 10);
-        if (!isNaN(seq) && seq > maxSequence) {
-          maxSequence = seq;
-        }
-      }
-    });
-
-    const nextSequence = String(maxSequence + 1).padStart(7, "0");
-    const logicalStudentNumber = `${yearPrefix}${nextSequence}`;
 
     try {
       const token = localStorage.getItem("jwt_token");
-      const response = await fetch("http://localhost:5157/api/students", {
+      const response = await fetch("http://localhost:5157/api/teachers", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -243,19 +208,19 @@ function StudentsPage() {
         body: JSON.stringify({
           FirstName: firstName,
           LastName: lastName,
-          StudentNumber: logicalStudentNumber,
           Email: newEmail,
-          Status: "AKTİF",
+          Branch: newBranch,
           Date: new Date().toISOString(),
         }),
       });
 
       if (response.ok) {
-        showToast("Öğrenci başarıyla sisteme kaydedildi!");
+        showToast("Öğretmen başarıyla sisteme kaydedildi!");
         setNewName("");
         setNewEmail("");
+        setNewBranch("");
         setIsModalOpen(false);
-        fetchStudents();
+        fetchTeachers();
       } else {
         const errorData = await response.text();
         console.error("Backend hatası:", errorData);
@@ -267,46 +232,42 @@ function StudentsPage() {
   };
 
   const searchLower = searchTerm.toLowerCase();
-  const filteredStudents = dbStudents.filter((s) => {
-    const fName = s.name || `${s.firstName || s.FirstName || ""} ${s.lastName || s.LastName || ""}`;
-    const fEmail = s.email || s.Email || "";
-    const fCourse = s.course || s.Course || "";
+  const filteredTeachers = dbTeachers.filter((t) => {
+    const fName = `${t.firstName || t.FirstName || ""} ${t.lastName || t.LastName || ""}`;
+    const fEmail = t.email || t.Email || "";
+    const fBranch = t.branch || t.Branch || "";
     return (
       fName.toLowerCase().includes(searchLower) ||
       fEmail.toLowerCase().includes(searchLower) ||
-      fCourse.toLowerCase().includes(searchLower)
+      fBranch.toLowerCase().includes(searchLower)
     );
   });
 
-  // Seçili öğrencinin kurs kayıtlarını profil modalı için hesaplayan yardımcı fonksiyon
-  const getSelectedStudentEnrollments = () => {
-    if (!selectedProfileStudent) return [];
-    const fullName =
-      selectedProfileStudent.name ||
-      `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`.trim();
-    const studentFullName = fullName.toLowerCase();
-    const studentNumber = String(
-      selectedProfileStudent.studentNumber || selectedProfileStudent.StudentNumber || "",
-    ).toLowerCase();
+  // Öğretmenin güncel olarak bir kursta eğitmen olarak görünüp görünmediğine göre
+  // aktif/pasif durumunu hesaplar (kurs listesindeki "instructor" alanına göre eşleştirme)
+  const getTeacherStatus = (t: TeacherData) => {
+    const fullName = `${t.firstName || t.FirstName || ""} ${t.lastName || t.LastName || ""}`
+      .trim()
+      .toLowerCase();
+    if (!fullName) return "PASİF";
 
-    return dbEnrollments.filter((e) => {
-      const enrName = String(e.studentFullName || e.StudentFullName || "").toLowerCase();
-      const enrNumber = String(e.studentNumber || e.StudentNumber || "").toLowerCase();
-      return (
-        (enrName && studentFullName && enrName.includes(studentFullName)) ||
-        (enrNumber && studentNumber && enrNumber === studentNumber)
-      );
+    const isTeaching = dbCourses.some((c) => {
+      const instructor = String(c.instructor || c.Instructor || "").toLowerCase();
+      return instructor && instructor.includes(fullName);
     });
+
+    return isTeaching ? "AKTİF" : "PASİF";
   };
 
   const handleStartEditProfile = () => {
-    if (!selectedProfileStudent) return;
-    setEditFirstName(selectedProfileStudent.firstName || selectedProfileStudent.FirstName || "");
-    setEditLastName(selectedProfileStudent.lastName || selectedProfileStudent.LastName || "");
-    setEditEmail(selectedProfileStudent.email || selectedProfileStudent.Email || "");
-    setEditAboutMe(selectedProfileStudent.aboutMe || selectedProfileStudent.AboutMe || "");
+    if (!selectedProfileTeacher) return;
+    setEditFirstName(selectedProfileTeacher.firstName || selectedProfileTeacher.FirstName || "");
+    setEditLastName(selectedProfileTeacher.lastName || selectedProfileTeacher.LastName || "");
+    setEditEmail(selectedProfileTeacher.email || selectedProfileTeacher.Email || "");
+    setEditBranch(selectedProfileTeacher.branch || selectedProfileTeacher.Branch || "");
+    setEditAboutMe(selectedProfileTeacher.aboutMe || selectedProfileTeacher.AboutMe || "");
     setEditProfilePictureUrl(
-      selectedProfileStudent.profilePictureUrl || selectedProfileStudent.ProfilePictureUrl || "",
+      selectedProfileTeacher.profilePictureUrl || selectedProfileTeacher.ProfilePictureUrl || "",
     );
     setProfileImageMode("upload");
     setIsEditingProfile(true);
@@ -347,11 +308,11 @@ function StudentsPage() {
 
   const handleRemoveProfileImage = () => setEditProfilePictureUrl("");
 
-  const handleSaveStudentEdit = async () => {
-    if (!selectedProfileStudent) return;
-    const studentId = selectedProfileStudent.id ?? selectedProfileStudent.Id;
-    if (!studentId) {
-      showToast("Öğrenci kimliği bulunamadı.", "error");
+  const handleSaveTeacherEdit = async () => {
+    if (!selectedProfileTeacher) return;
+    const teacherId = selectedProfileTeacher.id ?? selectedProfileTeacher.Id;
+    if (!teacherId) {
+      showToast("Öğretmen kimliği bulunamadı.", "error");
       return;
     }
     if (!editFirstName.trim() || !editLastName.trim()) {
@@ -362,53 +323,51 @@ function StudentsPage() {
     setIsSavingProfile(true);
     try {
       const token = localStorage.getItem("jwt_token");
-      // handleSaveStudentEdit fonksiyonu içindeki fetch isteğini bu şekilde güncelleyin:
 
-      const response = await fetch(`http://localhost:5157/api/students/${studentId}`, {
+      const response = await fetch(`http://localhost:5157/api/teachers/${teacherId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          Id: studentId, // Eksik olan Id eklendi
+          Id: teacherId,
           FirstName: editFirstName,
           LastName: editLastName,
           Email: editEmail,
+          Branch: editBranch,
           AboutMe: editAboutMe,
           ProfilePictureUrl: editProfilePictureUrl,
-          // Backend'de zorunlu (required) olma ihtimaline karşı mevcut değerleri de gönderiyoruz:
-          StudentNumber:
-            selectedProfileStudent.studentNumber || selectedProfileStudent.StudentNumber,
-          Status: selectedProfileStudent.status || selectedProfileStudent.Status,
-          Date: selectedProfileStudent.date || selectedProfileStudent.Date,
+          Date: selectedProfileTeacher.date || selectedProfileTeacher.Date,
         }),
       });
 
       if (response.ok) {
-        const updatedStudent: StudentData = {
-          ...selectedProfileStudent,
+        const updatedTeacher: TeacherData = {
+          ...selectedProfileTeacher,
           firstName: editFirstName,
           FirstName: editFirstName,
           lastName: editLastName,
           LastName: editLastName,
           email: editEmail,
           Email: editEmail,
+          branch: editBranch,
+          Branch: editBranch,
           aboutMe: editAboutMe,
           AboutMe: editAboutMe,
           profilePictureUrl: editProfilePictureUrl,
           ProfilePictureUrl: editProfilePictureUrl,
         };
-        setSelectedProfileStudent(updatedStudent);
-        setDbStudents((prev) =>
-          prev.map((s) => ((s.id ?? s.Id) === studentId ? updatedStudent : s)),
+        setSelectedProfileTeacher(updatedTeacher);
+        setDbTeachers((prev) =>
+          prev.map((t) => ((t.id ?? t.Id) === teacherId ? updatedTeacher : t)),
         );
         setIsEditingProfile(false);
-        showToast("Öğrenci başarıyla güncellendi.");
+        showToast("Öğretmen başarıyla güncellendi.");
       } else {
         const errorText = await response.text();
-        console.error("Öğrenci güncellenirken hata:", errorText);
-        showToast("Öğrenci güncellenirken bir hata oluştu.", "error");
+        console.error("Öğretmen güncellenirken hata:", errorText);
+        showToast("Öğretmen güncellenirken bir hata oluştu.", "error");
       }
     } catch (error) {
       console.error(error);
@@ -421,18 +380,18 @@ function StudentsPage() {
   return (
     <>
       <PageHeader
-        crumb="/ ogrenciler "
+        crumb="/ ogretmenler "
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         action={
           <div className="flex gap-2">
-            {isEditMode && selectedStudentIds.length > 0 && (
+            {isEditMode && selectedTeacherIds.length > 0 && (
               <button
                 onClick={() => setIsDeleteModalOpen(true)}
                 className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-red-600 transition-colors animate-in fade-in"
               >
                 <Trash2 className="size-4" />
-                Seçilenleri Sil ({selectedStudentIds.length})
+                Seçilenleri Sil ({selectedTeacherIds.length})
               </button>
             )}
 
@@ -440,7 +399,7 @@ function StudentsPage() {
               onClick={toggleEditMode}
               className="flex items-center gap-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md text-xs font-bold transition-colors"
             >
-              {isEditMode ? "İptal" : "Öğrencileri Düzenle"}
+              {isEditMode ? "İptal" : "Öğretmenleri Düzenle"}
             </button>
 
             <button
@@ -448,7 +407,7 @@ function StudentsPage() {
               className="flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
             >
               <Plus className="size-4" />
-              Yeni Öğrenci
+              Yeni Öğretmen
             </button>
           </div>
         }
@@ -456,7 +415,7 @@ function StudentsPage() {
 
       <div className="p-8 animate-reveal">
         <div className="flex items-end justify-between border-b border-foreground/10 pb-2 mb-4">
-          <h2 className="text-sm font-bold uppercase tracking-widest">Tüm Öğrenciler</h2>
+          <h2 className="text-sm font-bold uppercase tracking-widest">Tüm Öğretmenler</h2>
         </div>
 
         <div className="bg-card border border-border overflow-x-auto rounded-md shadow-sm">
@@ -464,12 +423,15 @@ function StudentsPage() {
             <thead>
               <tr className="bg-foreground/2 border-b border-border">
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
-                  Öğrenci
+                  Öğretmen
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
                   E-Posta
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
+                  Branş
+                </th>
+                <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
                   Kayıt Tarihi
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
@@ -482,8 +444,8 @@ function StudentsPage() {
                       className="size-4 rounded border-gray-300 text-foreground focus:ring-foreground cursor-pointer"
                       onChange={handleSelectAll}
                       checked={
-                        selectedStudentIds.length === filteredStudents.length &&
-                        filteredStudents.length > 0
+                        selectedTeacherIds.length === filteredTeachers.length &&
+                        filteredTeachers.length > 0
                       }
                     />
                   </th>
@@ -494,53 +456,36 @@ function StudentsPage() {
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-12 text-center text-muted-foreground animate-pulse font-mono text-xs uppercase tracking-widest"
                   >
-                    Öğrenciler Yükleniyor...
+                    Öğretmenler Yükleniyor...
                   </td>
                 </tr>
-              ) : filteredStudents.length === 0 ? (
+              ) : filteredTeachers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-xs">
-                    Kayıtlı öğrenci bulunamadı.
+                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground text-xs">
+                    Kayıtlı öğretmen bulunamadı.
                   </td>
                 </tr>
               ) : (
-                filteredStudents.map((s, index) => {
+                filteredTeachers.map((t, index) => {
                   const fullName =
-                    s.name ||
-                    `${s.firstName || s.FirstName || ""} ${s.lastName || s.LastName || ""}`.trim() ||
-                    "İsimsiz Öğrenci";
-                  const email = s.email || s.Email || "-";
-                  const initials = s.initials || fullName.slice(0, 2).toUpperCase();
-
-                  const studentFullName = fullName.trim().toLowerCase();
-                  const rawStudentNumber = s.studentNumber || s.StudentNumber || "";
-                  const studentNumber = String(rawStudentNumber).toLowerCase();
-
-                  const studentEnrollments = dbEnrollments.filter((e) => {
-                    const rawEnrName = e.studentFullName || e.StudentFullName || "";
-                    const enrName = String(rawEnrName).toLowerCase();
-                    const rawEnrNumber = e.studentNumber || e.StudentNumber || "";
-                    const enrNumber = String(rawEnrNumber).toLowerCase();
-
-                    return (
-                      (enrName && studentFullName && enrName.includes(studentFullName)) ||
-                      (enrNumber && studentNumber && enrNumber === studentNumber)
-                    );
-                  });
-
-                  const calculatedStatus = studentEnrollments.length > 0 ? "AKTİF" : "PASİF";
-                  const dateRaw = s.date || s.Date;
+                    `${t.firstName || t.FirstName || ""} ${t.lastName || t.LastName || ""}`.trim() ||
+                    "İsimsiz Öğretmen";
+                  const email = t.email || t.Email || "-";
+                  const branch = t.branch || t.Branch || "-";
+                  const initials = fullName.slice(0, 2).toUpperCase();
+                  const dateRaw = t.date || t.Date;
                   const date = dateRaw ? new Date(dateRaw).toLocaleDateString("tr-TR") : "-";
-                  const currentId = s.id || s.Id;
+                  const currentId = t.id || t.Id;
+                  const calculatedStatus = getTeacherStatus(t);
 
                   return (
                     <tr
                       key={currentId || index}
                       className={`hover:bg-foreground/2 transition-colors ${
-                        selectedStudentIds.includes(currentId as string | number)
+                        selectedTeacherIds.includes(currentId as string | number)
                           ? "bg-foreground/5"
                           : ""
                       }`}
@@ -549,7 +494,7 @@ function StudentsPage() {
                         {/* TIKLANABİLİR PROFİL ALANI */}
                         <div
                           className="flex items-center gap-3 cursor-pointer group w-fit"
-                          onClick={() => setSelectedProfileStudent(s)}
+                          onClick={() => setSelectedProfileTeacher(t)}
                           title="Profili Görüntüle"
                         >
                           <div className="size-10 rounded bg-muted grid place-items-center text-[10px] font-mono text-muted-foreground shrink-0 uppercase group-hover:bg-foreground group-hover:text-background transition-colors duration-300">
@@ -557,14 +502,14 @@ function StudentsPage() {
                           </div>
                           <div>
                             <div className="font-semibold group-hover:underline">{fullName}</div>
-                            <div className="text-xs text-muted-foreground font-mono">
-                              {s.studentNumber || s.StudentNumber || "-"}
-                            </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">{email}</td>
-                      <td className="px-6 py-4 text-xs font-mono text-muted-foreground">{date}</td>
+                      <td className="px-6 py-4 text-muted-foreground">{branch}</td>
+                      <td className="px-6 py-4 text-xs font-mono text-muted-foreground text-right">
+                        {date}
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <span
                           className={`px-2 py-1 text-[10px] font-bold rounded-sm ${
@@ -581,8 +526,8 @@ function StudentsPage() {
                           <input
                             type="checkbox"
                             className="size-4 rounded border-gray-300 text-foreground focus:ring-foreground cursor-pointer"
-                            checked={selectedStudentIds.includes(currentId as string | number)}
-                            onChange={() => handleSelectStudent(currentId)}
+                            checked={selectedTeacherIds.includes(currentId as string | number)}
+                            onChange={() => handleSelectTeacher(currentId)}
                           />
                         </td>
                       )}
@@ -595,14 +540,14 @@ function StudentsPage() {
         </div>
 
         <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground font-mono">
-          <div>Toplam {filteredStudents.length} öğrenci</div>
+          <div>Toplam {filteredTeachers.length} öğretmen</div>
         </div>
       </div>
 
       {/* PROFİL MODALI */}
-      {selectedProfileStudent && (
+      {selectedProfileTeacher && (
         <div
-          onClick={() => setSelectedProfileStudent(null)}
+          onClick={() => setSelectedProfileTeacher(null)}
           className="fixed inset-0 z-200 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
         >
           <div
@@ -610,7 +555,7 @@ function StudentsPage() {
             className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm p-8 relative flex flex-col items-center animate-in zoom-in-95 duration-200"
           >
             <button
-              onClick={() => setSelectedProfileStudent(null)}
+              onClick={() => setSelectedProfileTeacher(null)}
               className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="size-5" />
@@ -628,7 +573,7 @@ function StudentsPage() {
 
             {isEditingProfile ? (
               <div className="w-full space-y-4">
-                <h2 className="text-lg font-bold text-center mb-2">Öğrenciyi Düzenle</h2>
+                <h2 className="text-lg font-bold text-center mb-2">Öğretmeni Düzenle</h2>
 
                 <div className="flex flex-col items-center gap-3">
                   {editProfilePictureUrl ? (
@@ -742,6 +687,17 @@ function StudentsPage() {
                 </div>
 
                 <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Branş</label>
+                  <input
+                    type="text"
+                    value={editBranch}
+                    onChange={(e) => setEditBranch(e.target.value)}
+                    placeholder="Örn: Matematik"
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium">Kendim Hakkında</label>
                   <textarea
                     rows={3}
@@ -762,7 +718,7 @@ function StudentsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={handleSaveStudentEdit}
+                    onClick={handleSaveTeacherEdit}
                     disabled={isSavingProfile || isUploadingProfileImage}
                     className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity disabled:opacity-60"
                   >
@@ -773,22 +729,19 @@ function StudentsPage() {
             ) : (
               <>
                 <div className="relative mb-4 mt-2">
-                  {selectedProfileStudent.profilePictureUrl ||
-                  selectedProfileStudent.ProfilePictureUrl ? (
+                  {selectedProfileTeacher.profilePictureUrl ||
+                  selectedProfileTeacher.ProfilePictureUrl ? (
                     <img
                       src={
-                        selectedProfileStudent.profilePictureUrl ||
-                        selectedProfileStudent.ProfilePictureUrl
+                        selectedProfileTeacher.profilePictureUrl ||
+                        selectedProfileTeacher.ProfilePictureUrl
                       }
                       alt="Profil"
                       className="size-24 rounded-full object-cover shadow-md border border-border"
                     />
                   ) : (
                     <div className="size-24 rounded-full bg-linear-to-tr from-stone-800 to-stone-600 text-white flex items-center justify-center text-3xl font-mono uppercase shadow-md">
-                      {(
-                        selectedProfileStudent.name ||
-                        `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`
-                      )
+                      {`${selectedProfileTeacher.firstName || selectedProfileTeacher.FirstName || ""} ${selectedProfileTeacher.lastName || selectedProfileTeacher.LastName || ""}`
                         .trim()
                         .slice(0, 2)
                         .toUpperCase()}
@@ -797,44 +750,37 @@ function StudentsPage() {
                 </div>
 
                 <h2 className="text-xl font-bold text-foreground mb-1 text-center">
-                  {selectedProfileStudent.name ||
-                    `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`.trim() ||
-                    "İsimsiz Öğrenci"}
+                  {`${selectedProfileTeacher.firstName || selectedProfileTeacher.FirstName || ""} ${selectedProfileTeacher.lastName || selectedProfileTeacher.LastName || ""}`.trim() ||
+                    "İsimsiz Öğretmen"}
                 </h2>
-                <p className="text-[11px] tracking-[0.2em] font-medium uppercase text-muted-foreground mb-8">
-                  Öğrenci
+                <p className="text-[11px] tracking-[0.2em] font-medium uppercase text-muted-foreground mb-2">
+                  Öğretmen
                 </p>
+                <span
+                  className={`mb-8 inline-block px-2 py-1 text-[10px] font-bold rounded-sm ${
+                    getTeacherStatus(selectedProfileTeacher) === "AKTİF"
+                      ? "bg-emerald-500/10 text-emerald-600"
+                      : "bg-stone-500/10 text-stone-500"
+                  }`}
+                >
+                  {getTeacherStatus(selectedProfileTeacher)}
+                </span>
 
                 <div className="w-full space-y-6 text-left">
                   <div>
                     <h3 className="text-sm font-bold text-foreground/80 mb-2">Kendim Hakkında</h3>
                     <p className="text-sm text-foreground">
-                      {selectedProfileStudent.aboutMe ||
-                        selectedProfileStudent.AboutMe ||
+                      {selectedProfileTeacher.aboutMe ||
+                        selectedProfileTeacher.AboutMe ||
                         "Henüz bir açıklama eklenmemiş."}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1 font-mono">
-                      No:{" "}
-                      {selectedProfileStudent.studentNumber ||
-                        selectedProfileStudent.StudentNumber ||
-                        "-"}
                     </p>
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-bold text-foreground/80 mb-2">Kayıtlı Kurslar</h3>
-                    {getSelectedStudentEnrollments().length > 0 ? (
-                      <ul className="text-sm text-foreground space-y-1.5">
-                        {getSelectedStudentEnrollments().map((enr, idx) => (
-                          <li key={idx} className="flex items-center gap-2">
-                            <span className="size-1.5 rounded-full bg-foreground/50 shrink-0"></span>
-                            {enr.courseTitle || enr.CourseTitle}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Henüz kurs kaydı bulunmuyor.</p>
-                    )}
+                    <h3 className="text-sm font-bold text-foreground/80 mb-2">Branş</h3>
+                    <p className="text-sm text-foreground">
+                      {selectedProfileTeacher.branch || selectedProfileTeacher.Branch || "-"}
+                    </p>
                   </div>
                 </div>
               </>
@@ -843,7 +789,7 @@ function StudentsPage() {
         </div>
       )}
 
-      {/* YENİ ÖĞRENCİ EKLEME MODALI */}
+      {/* YENİ ÖĞRETMEN EKLEME MODALI */}
       {isModalOpen && (
         <div
           onClick={() => setIsModalOpen(false)}
@@ -860,18 +806,18 @@ function StudentsPage() {
               <X className="size-5" />
             </button>
 
-            <h2 className="text-xl font-bold mb-6 tracking-tight">Yeni Öğrenci Ekle</h2>
+            <h2 className="text-xl font-bold mb-6 tracking-tight">Yeni Öğretmen Ekle</h2>
 
-            <form onSubmit={handleAddStudent} className="space-y-4">
+            <form onSubmit={handleAddTeacher} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Öğrenci Adı Soyadı</label>
+                <label className="text-sm font-medium">Öğretmen Adı Soyadı</label>
                 <input
                   type="text"
                   required
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Örn: Yağız Cengiz"
+                  placeholder="Örn: Ayşe Yılmaz"
                 />
               </div>
 
@@ -885,7 +831,18 @@ function StudentsPage() {
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="Örn: yagiz@mail.com"
+                  placeholder="Örn: ayse@mail.com"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Branş</label>
+                <input
+                  type="text"
+                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  value={newBranch}
+                  onChange={(e) => setNewBranch(e.target.value)}
+                  placeholder="Örn: Matematik"
                 />
               </div>
 
@@ -933,7 +890,7 @@ function StudentsPage() {
               <div className="flex-1">
                 <h3 className="text-lg font-bold mb-1">Silme Onayı</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Seçili <strong>{selectedStudentIds.length}</strong> öğrenciyi silmek istediğinize
+                  Seçili <strong>{selectedTeacherIds.length}</strong> öğretmeni silmek istediğinize
                   emin misiniz?
                 </p>
                 <p className="text-sm text-muted-foreground mb-6">
@@ -944,13 +901,13 @@ function StudentsPage() {
                     onClick={confirmDelete}
                     className="px-4 py-2 text-sm font-semibold bg-red-600 text-white hover:bg-red-700 rounded-md transition-colors"
                   >
-                    Evet
+                    Evet, Sil
                   </button>
                   <button
                     onClick={cancelDelete}
                     className="px-4 py-2 text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
                   >
-                    Hayır
+                    Hayır, İptal
                   </button>
                 </div>
               </div>

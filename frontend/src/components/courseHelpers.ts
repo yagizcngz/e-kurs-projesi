@@ -11,6 +11,9 @@ export interface CourseData {
   Price?: string | number;
   instructor?: string;
   Instructor?: string;
+  // --- YENİ EKLENEN ALANLAR ---
+  teacherId?: string | number | null;
+  TeacherId?: string | number | null;
   maxCapacity?: string | number;
   MaxCapacity?: string | number;
   image?: string;
@@ -44,6 +47,29 @@ export interface StudentLiteDto {
   aboutMe?: string;
   AboutMe?: string;
 }
+
+// --- YENİ EKLENEN TİP ---
+// /api/teachers'tan dönen öğretmen listesini karşılıyor. Kurs düzenleme formundaki
+// öğretmen seçim dropdown'ı ve "Eğitmen Profili" (foto + bio) eşleştirmesi bunu kullanır.
+export interface TeacherLiteDto {
+  id?: string | number;
+  Id?: string | number;
+  firstName?: string;
+  FirstName?: string;
+  lastName?: string;
+  LastName?: string;
+  email?: string;
+  Email?: string;
+  branch?: string;
+  Branch?: string;
+  profilePictureUrl?: string;
+  ProfilePictureUrl?: string;
+  aboutMe?: string;
+  AboutMe?: string;
+}
+
+export const getTeacherFullName = (t: TeacherLiteDto) =>
+  `${t.firstName || t.FirstName || ""} ${t.lastName || t.LastName || ""}`.trim();
 
 export const resolveImageSrc = (url: string) =>
   url.startsWith("http") || url.startsWith("data:") ? url : `${API_BASE}${url}`;

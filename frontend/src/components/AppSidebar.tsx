@@ -13,6 +13,7 @@ import {
   Moon,
   HelpCircle,
   GraduationCap,
+  UserCog,
   LogOut,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -43,6 +44,7 @@ interface ProfileMeDto {
 const menuItems = [
   { title: "Ana Sayfa", url: "/", icon: LayoutDashboard },
   { title: "Öğrenciler", url: "/ogrenciler", icon: Users },
+  { title: "Öğretmenler", url: "/ogretmenler", icon: UserCog },
   { title: "Kurslar", url: "/kurslar", icon: BookOpen },
   { title: "Kayıtlar", url: "/kayitlar", icon: ClipboardList },
   { title: "Raporlar", url: "/raporlar", icon: BarChart3 },

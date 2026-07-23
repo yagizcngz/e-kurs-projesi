@@ -16,6 +16,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
 import { Route as AuthenticatedRaporlarRouteImport } from './routes/_authenticated.raporlar'
 import { Route as AuthenticatedProfilRouteImport } from './routes/_authenticated.profil'
+import { Route as AuthenticatedOgretmenlerRouteImport } from './routes/_authenticated.ogretmenler'
 import { Route as AuthenticatedOgrencilerRouteImport } from './routes/_authenticated.ogrenciler'
 import { Route as AuthenticatedKurslarRouteImport } from './routes/_authenticated.kurslar'
 import { Route as AuthenticatedKayitlarRouteImport } from './routes/_authenticated.kayitlar'
@@ -54,6 +55,12 @@ const AuthenticatedProfilRoute = AuthenticatedProfilRouteImport.update({
   path: '/profil',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedOgretmenlerRoute =
+  AuthenticatedOgretmenlerRouteImport.update({
+    id: '/ogretmenler',
+    path: '/ogretmenler',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedOgrencilerRoute = AuthenticatedOgrencilerRouteImport.update({
   id: '/ogrenciler',
   path: '/ogrenciler',
@@ -78,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/kayitlar': typeof AuthenticatedKayitlarRoute
   '/kurslar': typeof AuthenticatedKurslarRoute
   '/ogrenciler': typeof AuthenticatedOgrencilerRoute
+  '/ogretmenler': typeof AuthenticatedOgretmenlerRoute
   '/profil': typeof AuthenticatedProfilRoute
   '/raporlar': typeof AuthenticatedRaporlarRoute
 }
@@ -88,6 +96,7 @@ export interface FileRoutesByTo {
   '/kayitlar': typeof AuthenticatedKayitlarRoute
   '/kurslar': typeof AuthenticatedKurslarRoute
   '/ogrenciler': typeof AuthenticatedOgrencilerRoute
+  '/ogretmenler': typeof AuthenticatedOgretmenlerRoute
   '/profil': typeof AuthenticatedProfilRoute
   '/raporlar': typeof AuthenticatedRaporlarRoute
   '/': typeof AuthenticatedIndexRoute
@@ -101,6 +110,7 @@ export interface FileRoutesById {
   '/_authenticated/kayitlar': typeof AuthenticatedKayitlarRoute
   '/_authenticated/kurslar': typeof AuthenticatedKurslarRoute
   '/_authenticated/ogrenciler': typeof AuthenticatedOgrencilerRoute
+  '/_authenticated/ogretmenler': typeof AuthenticatedOgretmenlerRoute
   '/_authenticated/profil': typeof AuthenticatedProfilRoute
   '/_authenticated/raporlar': typeof AuthenticatedRaporlarRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/kayitlar'
     | '/kurslar'
     | '/ogrenciler'
+    | '/ogretmenler'
     | '/profil'
     | '/raporlar'
   fileRoutesByTo: FileRoutesByTo
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
     | '/kayitlar'
     | '/kurslar'
     | '/ogrenciler'
+    | '/ogretmenler'
     | '/profil'
     | '/raporlar'
     | '/'
@@ -137,6 +149,7 @@ export interface FileRouteTypes {
     | '/_authenticated/kayitlar'
     | '/_authenticated/kurslar'
     | '/_authenticated/ogrenciler'
+    | '/_authenticated/ogretmenler'
     | '/_authenticated/profil'
     | '/_authenticated/raporlar'
     | '/_authenticated/'
@@ -200,6 +213,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfilRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/ogretmenler': {
+      id: '/_authenticated/ogretmenler'
+      path: '/ogretmenler'
+      fullPath: '/ogretmenler'
+      preLoaderRoute: typeof AuthenticatedOgretmenlerRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/ogrenciler': {
       id: '/_authenticated/ogrenciler'
       path: '/ogrenciler'
@@ -228,6 +248,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedKayitlarRoute: typeof AuthenticatedKayitlarRoute
   AuthenticatedKurslarRoute: typeof AuthenticatedKurslarRoute
   AuthenticatedOgrencilerRoute: typeof AuthenticatedOgrencilerRoute
+  AuthenticatedOgretmenlerRoute: typeof AuthenticatedOgretmenlerRoute
   AuthenticatedProfilRoute: typeof AuthenticatedProfilRoute
   AuthenticatedRaporlarRoute: typeof AuthenticatedRaporlarRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -237,6 +258,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedKayitlarRoute: AuthenticatedKayitlarRoute,
   AuthenticatedKurslarRoute: AuthenticatedKurslarRoute,
   AuthenticatedOgrencilerRoute: AuthenticatedOgrencilerRoute,
+  AuthenticatedOgretmenlerRoute: AuthenticatedOgretmenlerRoute,
   AuthenticatedProfilRoute: AuthenticatedProfilRoute,
   AuthenticatedRaporlarRoute: AuthenticatedRaporlarRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,

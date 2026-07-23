@@ -17,6 +17,10 @@ namespace EdTechApi.Core.Entities
         public int? UserId { get; set; }
         public User? User { get; set; }
 
+        // --- YENİ EKLENEN NAVİGASYON ---
+        // Bu öğretmene atanmış kurslar (Course.TeacherId -> Teacher.Id ilişkisinin karşı tarafı).
+        public ICollection<Course> Courses { get; set; } = new List<Course>();
+
         // Soft-delete: "silme" işlemi artık satırı DB'den kaldırmıyor, sadece işaretliyor.
         // Böylece Raporlar sayfasındaki "Silinen Öğretmenler" gerçek veriye dayanabiliyor.
         public bool IsDeleted { get; set; } = false;

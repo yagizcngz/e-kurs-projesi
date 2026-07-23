@@ -258,24 +258,33 @@ function ReportsPage() {
   const totalDeletedTeachers = deletedTeachers.length;
   const totalDeletedEnrollments = deletedEnrollments.length;
 
-  // Yıllık Ciro (Projeksiyon): aktif kayıtların güncel kurs fiyatı üzerinden gerçek toplamı x 12
+  // Yıllık Gelir (Projeksiyon): Aylık Gelir'in (komisyon dahil) 12 katı — iki kart aynı mantığı kullansın diye
+  // önceden burada "revTotalNow * 12" vardı (komisyonsuz tam kurs fiyatı), Aylık Gelir ise %10 komisyon
+  // kullanıyordu; bu da iki rakamın birbiriyle tutarsız görünmesine yol açıyordu.
   const formatCurrency = (val: number) => {
     if (val >= 1000000) return `₺${(val / 1000000).toFixed(1)}M`;
     if (val >= 1000) return `₺${(val / 1000).toFixed(1)}K`;
     return `₺${val}`;
   };
-  const yillikCiroFormatted = formatCurrency(revTotalNow * 12);
+  const yillikCiroFormatted = formatCurrency(adminRevThisMonth * 12);
 
-  // Aylık Kayıt Trendi (Grafik Verisi) — kayıt (enrollment) tarihlerine göre hesaplanır
-  const monthCounts = new Array(12).fill(0);
-  dbEnrollments.forEach((e) => {
-    const dRaw = e.enrollmentDate || e.EnrollmentDate || e.date || e.Date;
-    if (!dRaw) return;
-    const d = new Date(dRaw);
-    if (!isNaN(d.getTime()) && d.getFullYear() === currentYear) {
-      monthCounts[d.getMonth()] += 1;
-    }
+  // Aylık Kayıt Trendi (Grafik Verisi) — takvim yılına (örn. sabit "2026") bağlı kalmayan,
+  // bugünden geriye doğru son 12 ayı kapsayan kayan pencere. Eskiden "d.getFullYear() === currentYear"
+  // filtresi vardı; kayıt tarihleri farklı bir yıla denk gelince grafik tamamen boş görünüyordu.
+  const trendMonths = Array.from({ length: 12 }).map((_, i) => {
+    const d = new Date(currentYear, currentMonth - 11 + i, 1);
+    return { year: d.getFullYear(), month: d.getMonth() };
   });
+
+  const monthCounts = trendMonths.map(
+    ({ year, month }) =>
+      dbEnrollments.filter((e) => {
+        const dRaw = e.enrollmentDate || e.EnrollmentDate || e.date || e.Date;
+        if (!dRaw) return false;
+        const d = new Date(dRaw);
+        return !isNaN(d.getTime()) && d.getFullYear() === year && d.getMonth() === month;
+      }).length,
+  );
 
   const maxCount = Math.max(...monthCounts, 1);
 
@@ -294,10 +303,11 @@ function ReportsPage() {
     "Ara",
   ];
 
-  const dynamicMonthlyTrend = monthCounts.map((count, index) => ({
-    m: monthNames[index],
-    v: Math.round((count / maxCount) * 100),
-    raw: count,
+  const dynamicMonthlyTrend = trendMonths.map(({ year, month }, index) => ({
+    // Farklı bir yıla denk gelen aylarda karışıklık olmasın diye kısa yıl ekleniyor (örn. "Oca '25")
+    m: monthNames[month] + (year !== currentYear ? ` '${String(year).slice(2)}` : ""),
+    v: Math.round((monthCounts[index] / maxCount) * 100),
+    raw: monthCounts[index],
   }));
 
   return (
@@ -455,15 +465,15 @@ function ReportsPage() {
             hintTone={studentGrowth >= 0 ? "up" : "warn"}
           />
           <KpiCard
-            label="Aktif Kurslar"
-            value={isLoading ? "..." : activeCourses}
-            hint="Yeni kurslar eklendi"
-            hintTone="accent"
-          />
-          <KpiCard
             label="Toplam Öğretmen"
             value={isLoading ? "..." : totalTeachers}
             hint="Kurslardaki tekil eğitmen sayısı"
+            hintTone="accent"
+          />
+          <KpiCard
+            label="Aktif Kurslar"
+            value={isLoading ? "..." : activeCourses}
+            hint="Yeni kurslar eklendi"
             hintTone="accent"
           />
           <KpiCard
@@ -479,15 +489,15 @@ function ReportsPage() {
             hintTone="muted"
           />
           <KpiCard
-            label="Silinen Kurslar"
-            value={isLoading ? "..." : totalDeletedCourses}
-            hint="Soft-delete ile işaretlenmiş kurslar"
-            hintTone="muted"
-          />
-          <KpiCard
             label="Silinen Öğretmenler"
             value={isLoading ? "..." : totalDeletedTeachers}
             hint="Soft-delete ile işaretlenmiş öğretmenler"
+            hintTone="muted"
+          />
+          <KpiCard
+            label="Silinen Kurslar"
+            value={isLoading ? "..." : totalDeletedCourses}
+            hint="Soft-delete ile işaretlenmiş kurslar"
             hintTone="muted"
           />
           <KpiCard
@@ -518,7 +528,7 @@ function ReportsPage() {
 
         <section className="space-y-4">
           <SectionHeader
-            title={`Aylık Kayıt Trendi (${currentYear})`}
+            title="Aylık Kayıt Trendi (Son 12 Ay)"
             right={
               <span className="text-[10px] font-mono text-muted-foreground uppercase">
                 BİRİM: GERÇEK KAYIT ADEDİ
@@ -541,7 +551,7 @@ function ReportsPage() {
                     </div>
                     <div
                       className="w-full bg-accent/80 hover:bg-accent transition-all duration-500 rounded-t-sm"
-                      style={{ height: `${d.v}%` }}
+                      style={{ height: `${(d.v / 100) * 200}px` }}
                     />
                   </div>
                   <span className="text-[10px] font-mono text-muted-foreground uppercase">

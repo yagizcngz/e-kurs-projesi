@@ -17,6 +17,14 @@ namespace EdTechApi.Core.Entities
         // Boşsa frontend otomatik olarak stok bir fotoğraf gösterir.
         public string? ImageUrl { get; set; }
 
+        // --- YENİ EKLENEN SÜTUN: Öğretmen ataması ---
+        // Nullable: bir kursun mutlaka bir öğretmene atanmış olması gerekmiyor.
+        // Üstteki "Instructor" serbest metin alanı geriye dönük uyumluluk için duruyor;
+        // bir TeacherId seçildiğinde CourseService, Instructor'ı o öğretmenin adıyla
+        // otomatik senkronize eder.
+        public int? TeacherId { get; set; }
+        public Teacher? Teacher { get; set; }
+
         public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
 
         // Soft-delete: "silme" işlemi artık satırı DB'den kaldırmıyor, sadece işaretliyor.

@@ -16,9 +16,10 @@ import {
   resolveImageSrc,
   getCourseImage,
   getCourseEnrollments,
+  getTeacherFullName,
   type CourseData,
   type EnrollmentDto,
-  type StudentLiteDto,
+  type TeacherLiteDto,
 } from "./courseHelpers";
 
 interface CourseDetailModalProps {
@@ -26,7 +27,7 @@ interface CourseDetailModalProps {
   onClose: () => void;
   canManage: boolean;
   enrollments: EnrollmentDto[];
-  students: StudentLiteDto[];
+  teachers: TeacherLiteDto[];
   onSaved: (updated: CourseData) => void;
 }
 
@@ -35,7 +36,7 @@ export function CourseDetailModal({
   onClose,
   canManage,
   enrollments,
-  students,
+  teachers,
   onSaved,
 }: CourseDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -43,6 +44,9 @@ export function CourseDetailModal({
   const [editCategory, setEditCategory] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editCapacity, setEditCapacity] = useState("");
+  // editTeacherId: teachers listesinden seçilen öğretmenin id'si (string olarak, select
+  // elemanının value'su için). Boş string = "öğretmen seçilmedi, serbest metin kullan".
+  const [editTeacherId, setEditTeacherId] = useState("");
   const [editInstructor, setEditInstructor] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
@@ -64,26 +68,33 @@ export function CourseDetailModal({
   const category = course.category || course.Category || "Genel";
   const price = course.price || course.Price || "0";
   const instructor = course.instructor || course.Instructor || "Bilinmiyor";
+  const teacherId = course.teacherId ?? course.TeacherId;
   const capacity = course.maxCapacity || course.MaxCapacity;
   const description = course.description || course.Description;
   const imageUrl = getCourseImage(course, 0);
   const courseEnrollments = getCourseEnrollments(course, enrollments);
 
+  // Eğitmen profili (fotoğraf + bio): önce TeacherId ile kesin eşleşme deneniyor.
+  // TeacherId'si olmayan eski kurslar için isimle eşleştirme geriye dönük uyumluluk
+  // amacıyla hâlâ deneniyor, ama artık ikincil (fallback) yöntem.
   const instructorProfile = (() => {
+    if (teacherId !== undefined && teacherId !== null && teacherId !== "") {
+      const match = teachers.find((t) => String(t.id ?? t.Id) === String(teacherId));
+      if (match) {
+        return {
+          photoUrl: match.profilePictureUrl || match.ProfilePictureUrl || "",
+          bio: match.aboutMe || match.AboutMe || "",
+        };
+      }
+    }
+
     const target = instructor.trim().toLowerCase();
     if (!target) return null;
-    const match = students.find((s) => {
-      const fullName = (
-        s.name || `${s.firstName || s.FirstName || ""} ${s.lastName || s.LastName || ""}`
-      )
-        .trim()
-        .toLowerCase();
-      return fullName === target;
-    });
-    if (!match) return null;
+    const nameMatch = teachers.find((t) => getTeacherFullName(t).trim().toLowerCase() === target);
+    if (!nameMatch) return null;
     return {
-      photoUrl: match.profilePictureUrl || match.ProfilePictureUrl || "",
-      bio: match.aboutMe || match.AboutMe || "",
+      photoUrl: nameMatch.profilePictureUrl || nameMatch.ProfilePictureUrl || "",
+      bio: nameMatch.aboutMe || nameMatch.AboutMe || "",
     };
   })();
 
@@ -101,6 +112,9 @@ export function CourseDetailModal({
     setEditCategory(course.category || course.Category || "");
     setEditPrice(String(course.price ?? course.Price ?? ""));
     setEditCapacity(String(course.maxCapacity ?? course.MaxCapacity ?? ""));
+    setEditTeacherId(
+      teacherId !== undefined && teacherId !== null && teacherId !== "" ? String(teacherId) : "",
+    );
     setEditInstructor(course.instructor || course.Instructor || "");
     setEditDescription(course.description || course.Description || "");
     setEditImageUrl(course.imageUrl || course.ImageUrl || course.image || course.Image || "");
@@ -176,6 +190,16 @@ export function CourseDetailModal({
     setStatusMessage(null);
     try {
       const token = localStorage.getItem("jwt_token");
+
+      // Bir öğretmen seçildiyse Instructor metnini backend zaten senkronize edecek
+      // (CourseService.SyncInstructorFromTeacherAsync), ama burada da doğru değeri
+      // gönderiyoruz ki UI, sunucu yanıtı dönene kadar da tutarlı görünsün.
+      const selectedTeacher = teachers.find((t) => String(t.id ?? t.Id) === editTeacherId);
+      const instructorToSend = editTeacherId
+        ? getTeacherFullName(selectedTeacher || {})
+        : editInstructor;
+      const teacherIdToSend = editTeacherId ? Number(editTeacherId) : null;
+
       const response = await fetch(`${API_BASE}/api/courses/${courseId}`, {
         method: "PUT",
         headers: {
@@ -185,7 +209,8 @@ export function CourseDetailModal({
         body: JSON.stringify({
           Title: editTitle,
           Category: editCategory,
-          Instructor: editInstructor,
+          Instructor: instructorToSend,
+          TeacherId: teacherIdToSend,
           MaxCapacity: Number(editCapacity) || 0,
           Price: Number(editPrice) || 0,
           Description: editDescription,
@@ -200,8 +225,10 @@ export function CourseDetailModal({
           Title: editTitle,
           category: editCategory,
           Category: editCategory,
-          instructor: editInstructor,
-          Instructor: editInstructor,
+          instructor: instructorToSend,
+          Instructor: instructorToSend,
+          teacherId: teacherIdToSend,
+          TeacherId: teacherIdToSend,
           maxCapacity: Number(editCapacity) || 0,
           MaxCapacity: Number(editCapacity) || 0,
           price: Number(editPrice) || 0,
@@ -384,12 +411,30 @@ export function CourseDetailModal({
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Eğitmen</label>
-                  <input
-                    type="text"
-                    value={editInstructor}
-                    onChange={(e) => setEditInstructor(e.target.value)}
+                  <select
+                    value={editTeacherId}
+                    onChange={(e) => setEditTeacherId(e.target.value)}
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
-                  />
+                  >
+                    <option value="">Serbest metin (aşağıdan yazın)</option>
+                    {teachers.map((t) => {
+                      const id = t.id ?? t.Id;
+                      return (
+                        <option key={id} value={id}>
+                          {getTeacherFullName(t)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {!editTeacherId && (
+                    <input
+                      type="text"
+                      value={editInstructor}
+                      onChange={(e) => setEditInstructor(e.target.value)}
+                      placeholder="Eğitmen adını yazın"
+                      className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors mt-1.5"
+                    />
+                  )}
                 </div>
               </div>
 

@@ -34,7 +34,12 @@ namespace EdTechApi.API.Controllers
             return Ok(course);
         }
 
-        [Authorize(Roles = "Admin")]
+        // NOT: Önceden sadece "Admin" idi. Frontend'de (kurslar.tsx) canManage kontrolü
+        // "Eğitmen", "Admin" ve "superadmin" rollerine izin veriyordu; bu yüzden Eğitmen
+        // veya superadmin ile giriş yapan biri kurs oluşturma butonunu görüyor ama backend
+        // 403 döndürüyordu. Rol listesi frontend'deki canManage ile eşleşecek şekilde
+        // genişletildi.
+        [Authorize(Roles = "Admin,Eğitmen,superadmin")]
         [HttpPost]
         public async Task<IActionResult> CreateCourse([FromBody] Course newCourse)
         {
@@ -42,7 +47,9 @@ namespace EdTechApi.API.Controllers
             return CreatedAtAction(nameof(GetById), new { id = newCourse.Id }, newCourse);
         }
 
-        [Authorize(Roles = "Admin")]
+        // NOT: Aynı sebeple PUT de "Eğitmen" ve "superadmin" rollerine açıldı — öğretmen
+        // atama/düzenleme işlemi CourseDetailModal üzerinden bu rollerle yapılabilsin.
+        [Authorize(Roles = "Admin,Eğitmen,superadmin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateCourse(int id, [FromBody] Course updatedCourse)
         {
@@ -54,6 +61,9 @@ namespace EdTechApi.API.Controllers
             return NoContent();
         }
 
+        // NOT: Önceden hiç [Authorize] yoktu, yani kimlik doğrulaması olmadan da
+        // çağrılabiliyordu. POST/PUT ile aynı rol setine kısıtlandı.
+        [Authorize(Roles = "Admin,Eğitmen,superadmin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCourse(int id)
         {

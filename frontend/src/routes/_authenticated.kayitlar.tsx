@@ -513,13 +513,13 @@ function EnrollmentsPage() {
                 onClick={confirmDeleteEnrollment}
                 className="px-4 py-2 text-sm font-semibold bg-red-600 text-white hover:bg-red-700 rounded-md transition-colors"
               >
-                Evet, Sil
+                Evet
               </button>
               <button
                 onClick={cancelDeleteEnrollment}
                 className="px-4 py-2 text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
               >
-                Hayır, İptal
+                Hayır
               </button>
             </div>
           </div>

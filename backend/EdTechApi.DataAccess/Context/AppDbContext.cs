@@ -33,6 +33,16 @@ namespace EdTechApi.DataAccess.Context
             modelBuilder.Entity<Course>().HasQueryFilter(c => !c.IsDeleted);
             modelBuilder.Entity<Enrollment>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<Teacher>().HasQueryFilter(t => !t.IsDeleted);
+
+            // 3. Course - Teacher ilişkisi (Course.TeacherId nullable FK):
+            //    Bir öğretmen (hard-delete ile) silinirse buna bağlı kursların TeacherId'si
+            //    otomatik olarak null'a çekilir, kurs kaydı etkilenmez.
+            modelBuilder.Entity<Course>()
+                .HasOne(c => c.Teacher)
+                .WithMany(t => t.Courses)
+                .HasForeignKey(c => c.TeacherId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // NOT: Daha önce burada BCrypt.HashPassword(...) ile hash'lenmiş bir "admin" seed
             // kullanıcısı vardı, ancak BCrypt her çağrıldığında farklı bir salt/hash ürettiği
             // için (deterministik değil), EF Core'un migration karşılaştırmasını bozup

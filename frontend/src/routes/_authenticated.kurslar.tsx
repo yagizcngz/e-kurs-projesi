@@ -7,7 +7,7 @@ import {
   getCourseImage,
   type CourseData,
   type EnrollmentDto,
-  type StudentLiteDto,
+  type TeacherLiteDto,
 } from "../components/courseHelpers";
 
 export const Route = createFileRoute("/_authenticated/kurslar")({
@@ -79,7 +79,9 @@ function CoursesPage() {
   // KURS DETAY MODALI İÇİN STATE'LER (düzenleme formu artık CourseDetailModal içinde)
   const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
   const [dbEnrollments, setDbEnrollments] = useState<EnrollmentDto[]>([]);
-  const [dbStudents, setDbStudents] = useState<StudentLiteDto[]>([]);
+  // Kurs düzenleme formundaki öğretmen seçim dropdown'ı ve "Eğitmen Profili" (foto+bio)
+  // eşleştirmesi için /api/teachers'tan çekilen liste.
+  const [dbTeachers, setDbTeachers] = useState<TeacherLiteDto[]>([]);
 
   // ÇOKLU SEÇİM VE DÜZENLEME MODU STATE'LERİ
   const [isEditMode, setIsEditMode] = useState(false);
@@ -138,7 +140,8 @@ function CoursesPage() {
     }
   }, []);
 
-  // Kurs detay modalında kayıtlı öğrenci sayısını ve eğitmen profilini gösterebilmek için
+  // Kurs detay modalında kayıtlı öğrenci sayısını göstermek ve öğretmen seçim
+  // dropdown'ını / eğitmen profilini doldurmak için gerekli listeler.
   useEffect(() => {
     const token = localStorage.getItem("jwt_token");
     const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
@@ -152,17 +155,17 @@ function CoursesPage() {
       }
     };
 
-    const fetchStudentsForProfiles = async () => {
+    const fetchTeachers = async () => {
       try {
-        const res = await fetch("http://localhost:5157/api/students", { headers });
-        if (res.ok) setDbStudents(await res.json());
+        const res = await fetch("http://localhost:5157/api/teachers", { headers });
+        if (res.ok) setDbTeachers(await res.json());
       } catch (error) {
-        console.error("Eğitmen profili için kullanıcı listesi alınamadı:", error);
+        console.error("Öğretmen listesi alınamadı:", error);
       }
     };
 
     fetchEnrollments();
-    fetchStudentsForProfiles();
+    fetchTeachers();
   }, []);
 
   const handleCloseDetailModal = () => {
@@ -436,7 +439,7 @@ function CoursesPage() {
           onClose={handleCloseDetailModal}
           canManage={canManage}
           enrollments={dbEnrollments}
-          students={dbStudents}
+          teachers={dbTeachers}
           onSaved={handleCourseSaved}
         />
       )}
@@ -563,14 +566,14 @@ function CoursesPage() {
                 disabled={isDeleting}
                 className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-60"
               >
-                {isDeleting ? "Siliniyor..." : "Evet, Sil"}
+                {isDeleting ? "Siliniyor..." : "Evet"}
               </button>
               <button
                 onClick={() => setIsConfirmOpen(false)}
                 disabled={isDeleting}
                 className="px-4 py-2 text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
               >
-                Hayır, İptal
+                Hayır
               </button>
             </div>
           </div>
