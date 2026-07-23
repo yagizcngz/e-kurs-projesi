@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Plus, X, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAdminGuard } from "../hooks/useAdminGuard";
 
 export const Route = createFileRoute("/_authenticated/kayitlar")({
   head: () => ({
@@ -50,6 +51,7 @@ const pick = <T,>(...vals: (T | undefined | null)[]) =>
   vals.find((v) => v !== undefined && v !== null);
 
 function EnrollmentsPage() {
+  useAdminGuard();
   const [enrollments, setEnrollments] = useState<EnrollmentDto[]>([]);
   const [students, setStudents] = useState<StudentLite[]>([]);
   const [courses, setCourses] = useState<CourseLite[]>([]);

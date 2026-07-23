@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "../components/PageHeader";
 import { Plus, X, CheckCircle2, AlertCircle, Edit2, Trash2, Upload, Link2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAdminGuard } from "../hooks/useAdminGuard";
 
 export const Route = createFileRoute("/_authenticated/ogretmenler")({
   component: TeachersPage,
@@ -36,6 +37,7 @@ interface CourseData {
 }
 
 function TeachersPage() {
+  useAdminGuard();
   const [searchTerm, setSearchTerm] = useState("");
   const [dbTeachers, setDbTeachers] = useState<TeacherData[]>([]);
   const [dbCourses, setDbCourses] = useState<CourseData[]>([]);

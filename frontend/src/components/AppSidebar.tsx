@@ -34,13 +34,22 @@ const parseJwt = (token: string) => {
   }
 };
 
+const translateRole = (role: string) => {
+  const r = String(role).toLowerCase();
+  if (r === "user") return "Öğrenci";
+  if (r === "teacher") return "Öğretmen";
+  if (r === "admin") return "Admin";
+  return role;
+};
+
 interface ProfileMeDto {
   profilePictureUrl?: string;
   ProfilePictureUrl?: string;
-  firstName?: string; // Eklendi
-  lastName?: string; // Eklendi
+  firstName?: string;
+  lastName?: string;
 }
 
+// Tüm menü listesi (Henüz filtrelenmemiş hali)
 const menuItems = [
   { title: "Ana Sayfa", url: "/", icon: LayoutDashboard },
   { title: "Öğrenciler", url: "/ogrenciler", icon: Users },
@@ -55,6 +64,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
+
   const [currentUser, setCurrentUser] = useState<{
     name: string;
     role: string;
@@ -62,7 +72,7 @@ export function AppSidebar() {
     photo?: string;
   }>({
     name: "Kullanıcı",
-    role: "Kullanıcı",
+    role: "Öğrenci",
     initials: "K",
   });
 
@@ -72,7 +82,6 @@ export function AppSidebar() {
     const token = localStorage.getItem("jwt_token");
     const storedUsername = localStorage.getItem("username");
 
-    // Token aynıysa ve sadece sayfa değişiyorsa işlemi durdur (isim ezilmesin)
     if (token === lastTokenRef.current) {
       return;
     }
@@ -80,7 +89,7 @@ export function AppSidebar() {
     lastTokenRef.current = token;
 
     let currentName = storedUsername || "Kullanıcı";
-    let currentRole = "User";
+    let currentRole = "Öğrenci";
 
     if (token) {
       const payload = parseJwt(token);
@@ -89,7 +98,8 @@ export function AppSidebar() {
           payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
           payload.role ||
           "";
-        currentRole = String(rawRole).toLowerCase() === "admin" ? "Admin" : "User";
+
+        currentRole = translateRole(rawRole || "user");
 
         if (!storedUsername) {
           currentName = payload.name || payload.unique_name || payload.sub || currentName;
@@ -106,7 +116,6 @@ export function AppSidebar() {
             const data: ProfileMeDto = await res.json();
             const photo = data.profilePictureUrl || data.ProfilePictureUrl;
 
-            // Backend'den gerçek ad ve soyad geldiyse onu kullan
             if (data.firstName && data.lastName) {
               currentName = `${data.firstName} ${data.lastName}`;
             }
@@ -139,7 +148,7 @@ export function AppSidebar() {
 
       loadProfileData();
     } else {
-      setCurrentUser({ name: "Kullanıcı", role: "User", initials: "K" });
+      setCurrentUser({ name: "Kullanıcı", role: "Öğrenci", initials: "K" });
     }
   }, [location.pathname]);
 
@@ -191,17 +200,22 @@ export function AppSidebar() {
     { label: "Yardım", icon: HelpCircle, to: "/yardim" },
   ];
 
+  // YENİ EKLENEN KISIM: Rol tabanlı menü filtreleme
+  const visibleMenuItems = menuItems.filter((item) => {
+    if (currentUser.role === "Admin") return true; // Admin her yeri görür
+    return item.url === "/" || item.url === "/kurslar"; // Diğerleri sadece bu ikisini görür
+  });
+
   return (
     <aside className="sticky top-0 flex h-screen w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
-      {/* Logo */}
       <div className="flex items-center gap-2 px-4 py-4 border-b">
         <BookOpen className="h-6 w-6 text-primary" />
         <span className="font-bold text-lg">E-Kurs</span>
       </div>
 
-      {/* Menü */}
       <nav className="flex-1 overflow-y-auto p-2 space-y-1">
-        {menuItems.map((item) => {
+        {/* menuItems yerine visibleMenuItems map ediliyor */}
+        {visibleMenuItems.map((item) => {
           const isActive = location.pathname === item.url;
           const Icon = item.icon;
           return (
@@ -221,7 +235,6 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* Profil */}
       <div className="border-t p-2">
         <Popover open={menuOpen} onOpenChange={setMenuOpen}>
           <PopoverTrigger asChild>

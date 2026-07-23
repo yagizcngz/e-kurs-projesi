@@ -53,6 +53,14 @@ interface ProfileDto {
   LastName?: string;
 }
 
+const translateRole = (role: string) => {
+  const r = String(role).toLowerCase();
+  if (r === "user") return "ÖĞRENCİ";
+  if (r === "teacher") return "ÖĞRETMEN";
+  if (r === "admin") return "ADMİN";
+  return String(role).toUpperCase();
+};
+
 function ProfilePage() {
   const [name, setName] = useState("");
   const [role, setRole] = useState("ÖĞRENCİ");
@@ -75,15 +83,19 @@ function ProfilePage() {
           payload.name ||
           payload.unique_name ||
           payload.sub;
+
+        // YENİ KOD BURADA OLMALI (payload tanımlandıktan sonra)
         const tokenRole =
           payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
           payload.role ||
-          "ÖĞRENCİ";
+          "user";
 
         if (tokenName) {
           currentUserName = tokenName;
         }
-        setRole(String(tokenRole).toUpperCase());
+
+        // Çeviri fonksiyonunu burada çağırıyoruz
+        setRole(translateRole(tokenRole));
       }
     }
 
@@ -103,15 +115,13 @@ function ProfilePage() {
           setPhotoUrl(data.profilePictureUrl || data.ProfilePictureUrl || "");
           setBio(data.aboutMe || data.AboutMe || "");
 
-          // EĞER BACKEND'DEN GERÇEK İSİM GELDİYSE ID'Yİ EZ VE ONU KULLAN
           const fName = data.firstName || data.FirstName;
           const lName = data.lastName || data.LastName;
 
           if (fName && lName) {
             const fullName = `${fName} ${lName}`;
-            setName(fullName); // Ekrana Yiğit Cengiz yazdırır
+            setName(fullName);
 
-            // Sidebar'ın (Sol alt köşenin) da bunu anında duyması için sinyal gönder
             window.dispatchEvent(
               new CustomEvent("profile-updated", {
                 detail: {

@@ -12,6 +12,7 @@ import {
   Link2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAdminGuard } from "../hooks/useAdminGuard";
 
 export const Route = createFileRoute("/_authenticated/ogrenciler")({
   component: StudentsPage,
@@ -62,6 +63,7 @@ interface EnrollmentData {
 }
 
 function StudentsPage() {
+  useAdminGuard();
   const [searchTerm, setSearchTerm] = useState("");
   const [dbStudents, setDbStudents] = useState<StudentData[]>([]);
   const [dbEnrollments, setDbEnrollments] = useState<EnrollmentData[]>([]);

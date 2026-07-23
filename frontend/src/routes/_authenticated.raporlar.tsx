@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader, SectionHeader } from "../components/PageHeader";
 import { useState, useEffect } from "react";
+import { useAdminGuard } from "../hooks/useAdminGuard";
 
 export const Route = createFileRoute("/_authenticated/raporlar")({
   head: () => ({
@@ -111,6 +112,7 @@ function KpiCard({ label, value, hint, hintTone = "muted", valueTone = "default"
 }
 
 function ReportsPage() {
+  useAdminGuard();
   const [dbStudents, setDbStudents] = useState<StudentData[]>([]);
   const [dbCourses, setDbCourses] = useState<CourseData[]>([]);
   const [dbEnrollments, setDbEnrollments] = useState<EnrollmentData[]>([]);
