@@ -2,7 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader, SectionHeader } from "../components/PageHeader";
 import { useState, useEffect } from "react";
 import { CourseDetailModal } from "../components/CourseDetailModal";
-import { getCourseImage, getCourseEnrollments, type CourseData } from "../components/courseHelpers";
+import {
+  getCourseImage,
+  getCourseEnrollments,
+  type CourseData,
+  type TeacherLiteDto,
+} from "../components/courseHelpers";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -75,6 +80,7 @@ interface EnrollmentData {
 function HomePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dbStudents, setDbStudents] = useState<StudentData[]>([]);
+  const [dbTeachers, setDbTeachers] = useState<TeacherLiteDto[]>([]);
   const [dbCourses, setDbCourses] = useState<CourseData[]>([]);
   const [dbEnrollments, setDbEnrollments] = useState<EnrollmentData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,15 +98,16 @@ function HomePage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       try {
-        const [sRes, cRes, eRes] = await Promise.all([
+        const [sRes, cRes, eRes, tRes] = await Promise.all([
           fetch("http://localhost:5157/api/students", { headers }),
           fetch("http://localhost:5157/api/courses", { headers }),
           fetch("http://localhost:5157/api/enrollments", { headers }),
+          fetch("http://localhost:5157/api/teachers", { headers }),
         ]);
-
         if (sRes.ok) setDbStudents(await sRes.json());
         if (cRes.ok) setDbCourses(await cRes.json());
-        if (eRes && eRes.ok) setDbEnrollments(await eRes.json());
+        if (eRes.ok) setDbEnrollments(await eRes.json());
+        if (tRes.ok) setDbTeachers(await tRes.json());
       } catch (err) {
         console.error("Veri çekme hatası:", err);
       } finally {
@@ -238,7 +245,7 @@ function HomePage() {
           onClose={() => setSelectedCourse(null)}
           canManage={canManage}
           enrollments={dbEnrollments}
-          students={dbStudents}
+          teachers={dbTeachers}
           onSaved={handleCourseSaved}
         />
       )}

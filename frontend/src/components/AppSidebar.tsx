@@ -195,7 +195,6 @@ export function AppSidebar() {
 
   const menuLinks = [
     { label: "Profil", icon: User, to: "/profil" },
-    { label: "Kurslarım", icon: GraduationCap, to: "/kurslar" },
     { label: "Ayarlar", icon: Settings, to: "/ayarlar" },
     { label: "Yardım", icon: HelpCircle, to: "/yardim" },
   ];

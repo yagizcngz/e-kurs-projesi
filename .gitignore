@@ -1,27 +1,45 @@
-Aslında bu bir hata değil — bu sadece git status çıktısı, normal bir bilgilendirme. Ama içinde gerçek bir sorun var: projenizde .gitignore dosyası olmadığı için bin/ ve obj/ klasörleri (derleme çıktıları, binary dosyalar) yanlışlıkla git'e dahil edilmiş. Bunlar hiçbir zaman commit'lenmemeli — her derlemede değişirler, repo'yu şişirirler ve gereksiz "modified" kirliliği yaratırlar.
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-Önce bunu düzeltelim, sonra gerçek değişiklikleri commit'leyelim:
+node_modules
+dist
+dist-ssr
+.output
+.vinxi
+.tanstack/**
+.nitro
+*.local
 
-1. Proje kök dizininde .gitignore dosyası oluşturun/güncelleyin
+# Wrangler / Cloudflare
+.wrangler/
+.dev.vars
 
-C:\Users\Cengiz\stajkod\e-kurs-projesi\.gitignore dosyasını açın (yoksa oluşturun) ve şunu yapıştırın:
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# .NET derleme çıktıları
+# .NET build outputs
 **/bin/
 **/obj/
 
-# Frontend
-frontend/node_modules/
-frontend/.output/
-frontend/.tanstack/
-frontend/.wrangler/
-frontend/dist/
-
-# Kullanıcı tarafından yüklenen dosyalar (profil fotoğrafları vs.)
+# User uploaded files (profile photos, etc.)
 backend/EdTechApi.API/wwwroot/uploads/
 
-# IDE / OS
+# Visual Studio
 .vs/
-.vscode/
-*.user
+
+# Windows thumbnail cache
 Thumbs.db

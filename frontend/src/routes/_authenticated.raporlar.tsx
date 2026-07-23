@@ -314,7 +314,7 @@ function ReportsPage() {
 
   return (
     <>
-      <PageHeader crumb="/ raporlar / performans" />
+      <PageHeader crumb="/ raporlar" />
 
       <div className="p-8 space-y-8 animate-reveal">
         {/* Son Eklenen Öğrenciler — en üstte */}

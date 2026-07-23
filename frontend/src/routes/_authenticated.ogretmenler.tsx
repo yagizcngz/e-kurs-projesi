@@ -44,9 +44,13 @@ function TeachersPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newName, setNewName] = useState("");
+  const [newFirstName, setNewFirstName] = useState("");
+  const [newLastName, setNewLastName] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [newBranch, setNewBranch] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // ÇOKLU SEÇİM VE DÜZENLEME MODU STATE'LERİ
@@ -119,9 +123,11 @@ function TeachersPage() {
     fetchCourses();
   }, []);
 
+  const currentTeacherId = selectedProfileTeacher?.id ?? selectedProfileTeacher?.Id;
+
   useEffect(() => {
     setIsEditingProfile(false);
-  }, [selectedProfileTeacher?.id ?? selectedProfileTeacher?.Id]);
+  }, [currentTeacherId]);
 
   const toggleEditMode = () => {
     setIsEditMode(!isEditMode);
@@ -190,46 +196,88 @@ function TeachersPage() {
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const nameParts = newName.trim().split(/\s+/);
-    if (nameParts.length < 2) {
-      showToast("Lütfen adınızı ve soyadınızı aralarında boşluk bırakarak tam girin.", "error");
+    if (!newFirstName.trim() || !newLastName.trim()) {
+      showToast("Ad ve soyad boş olamaz.", "error");
       return;
     }
 
-    const lastName = nameParts.pop();
-    const firstName = nameParts.join(" ");
+    const firstName = newFirstName.trim();
+    const lastName = newLastName.trim();
+    const email = newEmail.trim();
 
+    setIsSubmitting(true);
     try {
-      const token = localStorage.getItem("jwt_token");
-      const response = await fetch("http://localhost:5157/api/teachers", {
+      // Register endpoint kullanıcıyı + öğretmen profilini otomatik oluşturur
+      // (RegistrationCode="12345" = "Teacher" rolü = otomatik Teacher kaydı)
+      const res = await fetch("http://localhost:5157/api/auth/register", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          FirstName: firstName,
-          LastName: lastName,
-          Email: newEmail,
-          Branch: newBranch,
-          Date: new Date().toISOString(),
+          firstName,
+          lastName,
+          username: newUsername.trim(),
+          email,
+          password: newPassword,
+          registrationCode: "12345",
         }),
       });
 
-      if (response.ok) {
-        showToast("Öğretmen başarıyla sisteme kaydedildi!");
-        setNewName("");
-        setNewEmail("");
-        setNewBranch("");
-        setIsModalOpen(false);
-        fetchTeachers();
-      } else {
-        const errorData = await response.text();
-        console.error("Backend hatası:", errorData);
-        showToast("Kayıt başarısız! Bilgileri kontrol edin.", "error");
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("Register hatası:", errText);
+        showToast(errText || "Kayıt başarısız!", "error");
+        return;
       }
+
+      // Branş girildiyse, oluşturulan öğretmeni bulup PUT ile branş güncelle
+      if (newBranch.trim()) {
+        try {
+          const token = localStorage.getItem("jwt_token");
+          const headers = {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          };
+          const listRes = await fetch("http://localhost:5157/api/teachers", { headers });
+          if (listRes.ok) {
+            const teachers: TeacherData[] = await listRes.json();
+            const created = teachers.find(
+              (t) => (t.email || t.Email || "").toLowerCase() === email.toLowerCase(),
+            );
+            const createdId = created?.id ?? created?.Id;
+            if (createdId) {
+              await fetch(`http://localhost:5157/api/teachers/${createdId}`, {
+                method: "PUT",
+                headers,
+                body: JSON.stringify({
+                  Id: createdId,
+                  FirstName: firstName,
+                  LastName: lastName,
+                  Email: email,
+                  Branch: newBranch.trim(),
+                  Date: created?.date || created?.Date || new Date().toISOString(),
+                }),
+              });
+            }
+          }
+        } catch (branchErr) {
+          console.error("Branş güncellenirken hata:", branchErr);
+        }
+      }
+
+      showToast("Öğretmen başarıyla sisteme kaydedildi!");
+      setNewFirstName("");
+      setNewLastName("");
+      setNewEmail("");
+      setNewUsername("");
+      setNewPassword("");
+      setNewBranch("");
+      setIsModalOpen(false);
+      fetchTeachers();
     } catch (error) {
+      console.error(error);
       showToast("Sunucuya ulaşılamıyor.", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -811,20 +859,33 @@ function TeachersPage() {
             <h2 className="text-xl font-bold mb-6 tracking-tight">Yeni Öğretmen Ekle</h2>
 
             <form onSubmit={handleAddTeacher} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Öğretmen Adı Soyadı</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Örn: Ayşe Yılmaz"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Ad</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                    value={newFirstName}
+                    onChange={(e) => setNewFirstName(e.target.value)}
+                    placeholder="Örn: Ayşe"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Soyad</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                    value={newLastName}
+                    onChange={(e) => setNewLastName(e.target.value)}
+                    placeholder="Örn: Yılmaz"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">E-posta Adresi</label>
+                <label className="text-sm font-medium">E-posta</label>
                 <input
                   type="email"
                   required
@@ -833,7 +894,30 @@ function TeachersPage() {
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="Örn: ayse@mail.com"
+                  placeholder="Örn: ayse@example.com"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Kullanıcı Adı (Giriş ID)</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="Örn: ayseyilmaz"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Şifre</label>
+                <input
+                  type="password"
+                  required
+                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                 />
               </div>
 
@@ -852,15 +936,17 @@ function TeachersPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors"
+                  disabled={isSubmitting}
+                  className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors disabled:opacity-50"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity"
+                  disabled={isSubmitting}
+                  className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity disabled:opacity-50"
                 >
-                  Kaydet
+                  {isSubmitting ? "Kaydediliyor..." : "Kaydet"}
                 </button>
               </div>
             </form>

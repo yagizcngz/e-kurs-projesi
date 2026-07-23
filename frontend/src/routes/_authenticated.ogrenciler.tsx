@@ -70,8 +70,12 @@ function StudentsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newName, setNewName] = useState("");
+  const [newFirstName, setNewFirstName] = useState("");
+  const [newLastName, setNewLastName] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // ÇOKLU SEÇİM VE DÜZENLEME MODU STATE'LERİ
@@ -144,9 +148,11 @@ function StudentsPage() {
     fetchEnrollments();
   }, []);
 
+  const currentStudentId = selectedProfileStudent?.id ?? selectedProfileStudent?.Id;
+
   useEffect(() => {
     setIsEditingProfile(false);
-  }, [selectedProfileStudent?.id ?? selectedProfileStudent?.Id]);
+  }, [currentStudentId]);
 
   const toggleEditMode = () => {
     setIsEditMode(!isEditMode);
@@ -210,61 +216,47 @@ function StudentsPage() {
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const nameParts = newName.trim().split(/\s+/);
-    if (nameParts.length < 2) {
-      showToast("Lütfen adınızı ve soyadınızı aralarında boşluk bırakarak tam girin.", "error");
+    if (!newFirstName.trim() || !newLastName.trim()) {
+      showToast("Ad ve soyad boş olamaz.", "error");
       return;
     }
 
-    const lastName = nameParts.pop();
-    const firstName = nameParts.join(" ");
-    const yearPrefix = new Date().getFullYear().toString().slice(-2);
-
-    let maxSequence = 0;
-    dbStudents.forEach((s) => {
-      const numStr = s.studentNumber || s.StudentNumber || "";
-      if (numStr.startsWith(yearPrefix)) {
-        const seq = parseInt(numStr.slice(2), 10);
-        if (!isNaN(seq) && seq > maxSequence) {
-          maxSequence = seq;
-        }
-      }
-    });
-
-    const nextSequence = String(maxSequence + 1).padStart(7, "0");
-    const logicalStudentNumber = `${yearPrefix}${nextSequence}`;
-
+    setIsSubmitting(true);
     try {
-      const token = localStorage.getItem("jwt_token");
-      const response = await fetch("http://localhost:5157/api/students", {
+      // Register endpoint kullanıcıyı + öğrenci profilini otomatik oluşturur
+      // (RegistrationCode boş = "User" rolü = otomatik Student kaydı)
+      const res = await fetch("http://localhost:5157/api/auth/register", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          FirstName: firstName,
-          LastName: lastName,
-          StudentNumber: logicalStudentNumber,
-          Email: newEmail,
-          Status: "AKTİF",
-          Date: new Date().toISOString(),
+          firstName: newFirstName.trim(),
+          lastName: newLastName.trim(),
+          username: newUsername.trim(),
+          email: newEmail.trim(),
+          password: newPassword,
+          registrationCode: null,
         }),
       });
 
-      if (response.ok) {
+      if (res.ok) {
         showToast("Öğrenci başarıyla sisteme kaydedildi!");
-        setNewName("");
+        setNewFirstName("");
+        setNewLastName("");
         setNewEmail("");
+        setNewUsername("");
+        setNewPassword("");
         setIsModalOpen(false);
         fetchStudents();
       } else {
-        const errorData = await response.text();
-        console.error("Backend hatası:", errorData);
-        showToast("Kayıt başarısız! Bilgileri kontrol edin.", "error");
+        const errText = await res.text();
+        console.error("Register hatası:", errText);
+        showToast(errText || "Kayıt başarısız!", "error");
       }
     } catch (error) {
+      console.error(error);
       showToast("Sunucuya ulaşılamıyor.", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -865,20 +857,33 @@ function StudentsPage() {
             <h2 className="text-xl font-bold mb-6 tracking-tight">Yeni Öğrenci Ekle</h2>
 
             <form onSubmit={handleAddStudent} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Öğrenci Adı Soyadı</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Örn: Yağız Cengiz"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Ad</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                    value={newFirstName}
+                    onChange={(e) => setNewFirstName(e.target.value)}
+                    placeholder="Örn: Yağız"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Soyad</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                    value={newLastName}
+                    onChange={(e) => setNewLastName(e.target.value)}
+                    placeholder="Örn: Cengiz"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">E-posta Adresi</label>
+                <label className="text-sm font-medium">E-posta</label>
                 <input
                   type="email"
                   required
@@ -887,7 +892,30 @@ function StudentsPage() {
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="Örn: yagiz@mail.com"
+                  placeholder="Örn: yagiz@example.com"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Kullanıcı Adı (Giriş ID)</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="Örn: yagizcngz"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Şifre</label>
+                <input
+                  type="password"
+                  required
+                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                 />
               </div>
 
@@ -895,15 +923,17 @@ function StudentsPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors"
+                  disabled={isSubmitting}
+                  className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors disabled:opacity-50"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity"
+                  disabled={isSubmitting}
+                  className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity disabled:opacity-50"
                 >
-                  Kaydet
+                  {isSubmitting ? "Kaydediliyor..." : "Kaydet"}
                 </button>
               </div>
             </form>

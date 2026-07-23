@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, X, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
+import { PageHeader } from "../components/PageHeader";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAdminGuard } from "../hooks/useAdminGuard";
@@ -258,58 +259,46 @@ function EnrollmentsPage() {
   }, [enrollments, searchTerm]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between border-b border-border pb-4 pt-6 px-8">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Kayıt Yönetimi</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Öğrenci kayıtlarını görüntüle, ekle ve sil.
-          </p>
-        </div>
+    <>
+      <PageHeader
+        crumb="/ kayıtlar"
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        action={
+          <div className="flex items-center gap-2">
+            {/* Sadece seçim yapıldığında görünen silme butonu */}
+            {isEditMode && selectedEnrollmentIds.length > 0 && (
+              <button
+                onClick={() => setIsConfirmOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 animate-in fade-in"
+              >
+                <Trash2 className="h-4 w-4" />
+                Seçilenleri Sil ({selectedEnrollmentIds.length})
+              </button>
+            )}
 
-        <div className="flex gap-2">
-          {/* Sadece seçim yapıldığında görünen silme butonu */}
-          {isEditMode && selectedEnrollmentIds.length > 0 && (
+            {/* Düzenleme modunu açıp kapatan buton */}
             <button
-              onClick={() => setIsConfirmOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 animate-in fade-in"
+              onClick={toggleEditMode}
+              className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
             >
-              <Trash2 className="h-4 w-4" />
-              Seçilenleri Sil ({selectedEnrollmentIds.length})
+              {isEditMode ? "İptal" : "Kayıtları Düzenle"}
             </button>
-          )}
 
-          {/* Düzenleme modunu açıp kapatan buton */}
-          <button
-            onClick={toggleEditMode}
-            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            {isEditMode ? "İptal" : "Kayıtları Düzenle"}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleOpenModal}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" />
-            Yeni Kayıt
-          </button>
-        </div>
-      </div>
-
-      <div className="px-8">
-        <div className="rounded-xl border border-border bg-card shadow-sm">
-          <div className="border-b border-border p-4">
-            <input
-              type="text"
-              placeholder="Ara..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <button
+              type="button"
+              onClick={handleOpenModal}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              Yeni Kayıt
+            </button>
           </div>
+        }
+      />
 
+      <div className="p-8">
+        <div className="rounded-xl border border-border bg-card shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/50 text-muted-foreground">
@@ -539,6 +528,6 @@ function EnrollmentsPage() {
           <span className="text-sm font-medium">{toast.message}</span>
         </div>
       )}
-    </div>
+    </>
   );
 }
