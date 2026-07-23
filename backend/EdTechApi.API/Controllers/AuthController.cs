@@ -18,6 +18,10 @@ namespace EdTechApi.API.Controllers
         private readonly IConfiguration _configuration;
         private readonly AppDbContext _context;
 
+        // --- Sabit Kayıt Kodları (Geliştirme Ortamı İçin) ---
+        private const string TEACHER_CODE = "12345";
+        private const string ADMIN_CODE = "88888";
+
         public AuthController(IConfiguration configuration, AppDbContext context)
         {
             _configuration = configuration;
@@ -25,45 +29,83 @@ namespace EdTechApi.API.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest request) // Model RegisterRequest olarak güncellendi
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
+            // Kullanıcı adı veya E-posta kontrolü
             var userExists = await _context.Users.AnyAsync(u => u.Username == request.Username);
             if (userExists)
                 return BadRequest("Bu kullanıcı adı zaten alınmış.");
 
-            // GÜVENLİK KONTROLÜ: İlk admini oluşturmak için pratik bir yöntem.
-            // Gerçek projede bu kısımlar Seed Data ile atılır.
-            string assignedRole = request.Username == "superadmin" ? "Admin" : "User";
+            // Rol ataması: Gelen RegistrationCode'a göre karar veriyoruz
+            string assignedRole = "User"; // Varsayılan Öğrenci
+
+            if (!string.IsNullOrEmpty(request.RegistrationCode))
+            {
+                if (request.RegistrationCode == ADMIN_CODE)
+                {
+                    assignedRole = "Admin";
+                }
+                else if (request.RegistrationCode == TEACHER_CODE)
+                {
+                    assignedRole = "Teacher";
+                }
+                else
+                {
+                    return BadRequest("Geçersiz Kayıt Kodu.");
+                }
+            }
+
+            // Geriye dönük uyumluluk: superadmin adı da Admin yapar
+            if (request.Username == "superadmin" && assignedRole == "User")
+            {
+                assignedRole = "Admin";
+            }
 
             // 1. Önce Kullanıcı (User) Hesabını Oluştur
             var newUser = new User
             {
                 Username = request.Username,
                 Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                Role = assignedRole // Rolü dışarıdan JSON ile değil, kendi mantığımızla atıyoruz.
+                Role = assignedRole,
+                FirstName = request.FirstName, // EKLENDİ
+                LastName = request.LastName    // EKLENDİ
             };
 
             await _context.Users.AddAsync(newUser);
             await _context.SaveChangesAsync();
 
-            // 2. Eğer rolü 'User' ise anında bir Öğrenci (Student) profili oluştur ve UserId ile bağla
+            // 2. Eğer rolü 'User' ise anında bir Öğrenci (Student) profili oluştur
             if (assignedRole == "User")
             {
                 var newStudent = new Student
                 {
                     FirstName = request.FirstName,
                     LastName = request.LastName,
-                    StudentNumber = "OGR-" + newUser.Id.ToString().PadLeft(4, '0'), // Örn: OGR-0015
-                    Email = request.Username + "@ekurs.com", // Otomatik geçici e-posta
+                    StudentNumber = "OGR-" + newUser.Id.ToString().PadLeft(4, '0'), 
+                    Email = request.Email ?? (request.Username + "@ekurs.com"), // Gelen emaili kullan
                     Date = DateTime.Now,
-                    UserId = newUser.Id // EŞLEŞTİRME BURADA YAPILIYOR
+                    UserId = newUser.Id 
                 };
 
                 await _context.Students.AddAsync(newStudent);
                 await _context.SaveChangesAsync();
             }
+            // 3. Eğer rolü 'Teacher' ise anında bir Öğretmen (Teacher) profili oluştur
+            else if (assignedRole == "Teacher")
+            {
+                 var newTeacher = new Teacher
+                 {
+                     FirstName = request.FirstName,
+                     LastName = request.LastName,
+                     Email = request.Email ?? (request.Username + "@ekurs.com"),
+                     Date = DateTime.Now,
+                     UserId = newUser.Id
+                 };
+                 await _context.Teachers.AddAsync(newTeacher);
+                 await _context.SaveChangesAsync();
+            }
 
-            return Ok(new { message = $"Kullanıcı başarıyla oluşturuldu." });
+            return Ok(new { message = $"Kullanıcı başarıyla oluşturuldu. Atanan Rol: {assignedRole}" });
         }
 
         [HttpPost("login")]
@@ -71,7 +113,6 @@ namespace EdTechApi.API.Controllers
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
 
-            // Kullanıcı veritabanında yoksa VEYA gönderilen şifrenin çözülmüş hali veritabanındakiyle eşleşmiyorsa
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
             {
                 return Unauthorized("Geçersiz kullanıcı adı veya şifre.");
@@ -81,9 +122,6 @@ namespace EdTechApi.API.Controllers
             return Ok(new { token = tokenString });
         }
 
-        // Giriş yapan kullanıcının KENDİ hesap bilgilerini (Kendim Hakkında, profil fotoğrafı) döner.
-        // Bu, bir Student kaydına karşılık gelmeyen hesaplar (örn. admin) için kullanılır —
-        // /profil sayfası önce /api/students/me'yi dener, o 404 dönerse buraya düşer.
         [Authorize]
         [HttpGet("me")]
         public async Task<IActionResult> GetMe()
@@ -104,7 +142,6 @@ namespace EdTechApi.API.Controllers
             });
         }
 
-        // Giriş yapan kullanıcının kendi "Kendim Hakkında" ve profil fotoğrafını günceller.
         [Authorize]
         [HttpPut("me")]
         public async Task<IActionResult> UpdateMe([FromBody] UpdateUserProfileRequest request)
@@ -122,7 +159,7 @@ namespace EdTechApi.API.Controllers
             return Ok(new { message = "Profil güncellendi." });
         }
 
-        private string GenerateJwtToken(User user) // Parametreyi User nesnesi alacak şekilde değiştirdik
+        private string GenerateJwtToken(User user)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -130,7 +167,7 @@ namespace EdTechApi.API.Controllers
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Username),
-                new Claim(ClaimTypes.Role, user.Role), // KULLANICININ ROLÜNÜ BİLETE MÜHÜRLÜYORUZ
+                new Claim(ClaimTypes.Role, user.Role),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
@@ -138,14 +175,12 @@ namespace EdTechApi.API.Controllers
                 issuer: _configuration["Jwt:Issuer"],
                 audience: _configuration["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddMinutes(180), // 30 dakika geçerli olacak
+                expires: DateTime.Now.AddMinutes(180),
                 signingCredentials: credentials);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        // StudentsController'daki ile aynı mantık: "sub" claim'i genelde ClaimTypes.NameIdentifier'a
-        // eşlenir; her ihtimale karşı ikisini de ve ham "sub" değerini de kontrol ediyoruz.
         private string? GetCurrentUsername()
         {
             return User.FindFirst(ClaimTypes.NameIdentifier)?.Value
@@ -166,12 +201,15 @@ namespace EdTechApi.API.Controllers
         public string? ProfilePictureUrl { get; set; }
     }
 
-    // YENİ EKLENEN MODEL
     public class RegisterRequest
     {
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        
+        // YENİ EKLENEN ALANLAR
+        public string Email { get; set; } = string.Empty;
+        public string? RegistrationCode { get; set; } 
     }
 }

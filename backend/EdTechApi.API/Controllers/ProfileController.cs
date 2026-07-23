@@ -31,8 +31,8 @@ namespace EdTechApi.API.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user == null) return NotFound();
 
+            // 1. Önce Öğrenci (Student) tablosuna bak
             var student = await _context.Students.FirstOrDefaultAsync(s => s.UserId == user.Id);
-
             if (student != null)
             {
                 return Ok(new
@@ -40,18 +40,33 @@ namespace EdTechApi.API.Controllers
                     source = "student",
                     aboutMe = student.AboutMe,
                     profilePictureUrl = student.ProfilePictureUrl,
-                    firstName = student.FirstName, // GERÇEK AD EKLENDİ
-                    lastName = student.LastName    // GERÇEK SOYAD EKLENDİ
+                    firstName = student.FirstName,
+                    lastName = student.LastName
                 });
             }
 
+            // 2. Öğrenci değilse, Öğretmen (Teacher) tablosuna bak
+            var teacher = await _context.Teachers.FirstOrDefaultAsync(t => t.UserId == user.Id);
+            if (teacher != null)
+            {
+                return Ok(new
+                {
+                    source = "teacher",
+                    aboutMe = teacher.AboutMe,
+                    profilePictureUrl = teacher.ProfilePictureUrl,
+                    firstName = teacher.FirstName, // ÖĞRETMENİN GERÇEK ADI
+                    lastName = teacher.LastName    // ÖĞRETMENİN GERÇEK SOYADI
+                });
+            }
+
+            // 3. Hiçbiri değilse (örn. Admin), sadece User tablosundaki verileri dön
             return Ok(new
             {
                 source = "user",
                 aboutMe = user.AboutMe,
                 profilePictureUrl = user.ProfilePictureUrl,
-                firstName = "",
-                lastName = ""
+                firstName = user.FirstName, // GÜNCELLENDİ
+                lastName = user.LastName    // GÜNCELLENDİ
             });
         }
 
@@ -64,27 +79,33 @@ namespace EdTechApi.API.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user == null) return NotFound("Bu hesaba karşılık gelen bir kayıt bulunamadı.");
 
-            var student = await _context.Students.FirstOrDefaultAsync(s => s.UserId == user.Id);
+            // Her halükarda User tablosundaki kopyayı güncelliyoruz
+            user.AboutMe = request.AboutMe;
+            user.ProfilePictureUrl = request.ProfilePictureUrl;
 
+            // Öğrenci ise Student tablosunu da güncelle
+            var student = await _context.Students.FirstOrDefaultAsync(s => s.UserId == user.Id);
             if (student != null)
             {
                 student.AboutMe = request.AboutMe;
                 student.ProfilePictureUrl = request.ProfilePictureUrl;
-
-                user.AboutMe = request.AboutMe;
-                user.ProfilePictureUrl = request.ProfilePictureUrl;
-
                 await _context.SaveChangesAsync();
                 return Ok(new { message = "Öğrenci profili başarıyla güncellendi.", source = "student" });
             }
-            else
-            {
-                user.AboutMe = request.AboutMe;
-                user.ProfilePictureUrl = request.ProfilePictureUrl;
 
+            // Öğretmen ise Teacher tablosunu da güncelle
+            var teacher = await _context.Teachers.FirstOrDefaultAsync(t => t.UserId == user.Id);
+            if (teacher != null)
+            {
+                teacher.AboutMe = request.AboutMe;
+                teacher.ProfilePictureUrl = request.ProfilePictureUrl;
                 await _context.SaveChangesAsync();
-                return Ok(new { message = "Kullanıcı profili başarıyla güncellendi.", source = "user" });
+                return Ok(new { message = "Öğretmen profili başarıyla güncellendi.", source = "teacher" });
             }
+
+            // Sadece User ise (Admin vb.)
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Kullanıcı profili başarıyla güncellendi.", source = "user" });
         }
 
         private string? GetCurrentUsername()
