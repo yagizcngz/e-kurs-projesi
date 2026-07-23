@@ -52,12 +52,23 @@ namespace EdTechApi.Business.Services
 
         public async Task DeleteCourseAsync(int id)
         {
+            // Artık hard-delete değil, soft-delete yapıyoruz: satır DB'de kalır,
+            // sadece IsDeleted=true işaretlenir.
             var course = await _context.Courses.FindAsync(id);
             if (course != null)
             {
-                _context.Courses.Remove(course);
+                course.IsDeleted = true;
+                course.DeletedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
+        }
+
+        public async Task<IEnumerable<Course>> GetDeletedCoursesAsync()
+        {
+            return await _context.Courses
+                .IgnoreQueryFilters()
+                .Where(c => c.IsDeleted)
+                .ToListAsync();
         }
     }
 }

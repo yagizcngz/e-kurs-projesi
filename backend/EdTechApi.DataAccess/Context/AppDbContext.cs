@@ -16,12 +16,23 @@ namespace EdTechApi.DataAccess.Context
         // Yeni eklediğimiz Users tablosu
         public DbSet<User> Users { get; set; } 
 
+        // Yeni eklediğimiz Teachers (Öğretmenler) tablosu
+        public DbSet<Teacher> Teachers { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // 1. Öğrenci numarasının benzersiz (Unique) olması kuralı:
              modelBuilder.Entity<Student>()
                .HasIndex(s => s.StudentNumber)
                 .IsUnique();
+
+            // 2. Soft-delete global query filter'ları: IsDeleted=true olan satırlar
+            //    normal sorgularda (GetAll, FindAsync vb.) otomatik olarak gizlenir.
+            //    "Silinenleri" görmek için servislerde IgnoreQueryFilters() kullanılıyor.
+            modelBuilder.Entity<Student>().HasQueryFilter(s => !s.IsDeleted);
+            modelBuilder.Entity<Course>().HasQueryFilter(c => !c.IsDeleted);
+            modelBuilder.Entity<Enrollment>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<Teacher>().HasQueryFilter(t => !t.IsDeleted);
             // NOT: Daha önce burada BCrypt.HashPassword(...) ile hash'lenmiş bir "admin" seed
             // kullanıcısı vardı, ancak BCrypt her çağrıldığında farklı bir salt/hash ürettiği
             // için (deterministik değil), EF Core'un migration karşılaştırmasını bozup

@@ -9,5 +9,8 @@ namespace EdTechApi.Business.Interfaces
         Task AddCourseAsync(Course course);
         Task<bool> UpdateCourseAsync(int id, Course updatedCourse);
         Task DeleteCourseAsync(int id);
+
+        // Soft-delete edilmiş (silinmiş) kursların listesini döner — Raporlar sayfası için
+        Task<IEnumerable<Course>> GetDeletedCoursesAsync();
     }
 }

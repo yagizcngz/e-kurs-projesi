@@ -34,5 +34,13 @@ namespace EdTechApi.API.Controllers
             var enrollments = await _enrollmentService.GetAllEnrollmentsAsync();
             return Ok(enrollments);
         }
+
+        // Silinmiş (soft-deleted) kayıtlar — Raporlar sayfasındaki "Silinen Kayıtlar" kartı için
+        [HttpGet("deleted")]
+        public async Task<IActionResult> GetDeletedEnrollments()
+        {
+            var deleted = await _enrollmentService.GetDeletedEnrollmentsAsync();
+            return Ok(deleted);
+        }
     }
 }

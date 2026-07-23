@@ -115,6 +115,14 @@ namespace EdTechApi.API.Controllers
             await _studentService.DeleteStudentAsync(id);
             return NoContent();
         }
+
+        // Silinmiş (soft-deleted) öğrenciler — Raporlar sayfasındaki "Silinen Öğrenciler" kartı için
+        [HttpGet("deleted")]
+        public async Task<IActionResult> GetDeletedStudents()
+        {
+            var deleted = await _studentService.GetDeletedStudentsAsync();
+            return Ok(deleted);
+        }
         [HttpPost("bulk-delete")]
         public async Task<IActionResult> DeleteMultipleStudents([FromBody] List<int> ids)
         {

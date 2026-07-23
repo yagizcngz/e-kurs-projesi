@@ -41,7 +41,7 @@ interface ProfileMeDto {
 }
 
 const menuItems = [
-  { title: "Kontrol Paneli", url: "/", icon: LayoutDashboard },
+  { title: "Ana Sayfa", url: "/", icon: LayoutDashboard },
   { title: "Öğrenciler", url: "/ogrenciler", icon: Users },
   { title: "Kurslar", url: "/kurslar", icon: BookOpen },
   { title: "Kayıtlar", url: "/kayitlar", icon: ClipboardList },

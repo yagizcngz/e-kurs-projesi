@@ -22,12 +22,15 @@ interface StudentData {
   LastName?: string;
   email?: string;
   Email?: string;
+  studentNumber?: string;
+  StudentNumber?: string;
   course?: string;
   Course?: string;
   date?: string;
   Date?: string;
   status?: string;
   Status?: string;
+  initials?: string;
 }
 
 interface CourseData {
@@ -45,9 +48,77 @@ interface CourseData {
   Students?: number;
 }
 
+interface TeacherData {
+  id?: string | number;
+  Id?: string | number;
+  firstName?: string;
+  FirstName?: string;
+  lastName?: string;
+  LastName?: string;
+  email?: string;
+  Email?: string;
+  branch?: string;
+  Branch?: string;
+}
+
+interface EnrollmentData {
+  id?: string | number;
+  Id?: string | number;
+  studentId?: string | number;
+  StudentId?: string | number;
+  courseId?: string | number;
+  CourseId?: string | number;
+  enrollmentDate?: string;
+  EnrollmentDate?: string;
+  date?: string;
+  Date?: string;
+  studentFullName?: string;
+  StudentFullName?: string;
+  studentNumber?: string;
+  StudentNumber?: string;
+  courseTitle?: string;
+  CourseTitle?: string;
+}
+
+interface KpiCardProps {
+  label: string;
+  value: string | number;
+  hint: string;
+  hintTone?: "muted" | "up" | "accent" | "warn";
+  valueTone?: "default" | "accent";
+}
+
+function KpiCard({ label, value, hint, hintTone = "muted", valueTone = "default" }: KpiCardProps) {
+  const toneClass =
+    hintTone === "up"
+      ? "text-emerald-600"
+      : hintTone === "accent"
+        ? "text-accent"
+        : hintTone === "warn"
+          ? "text-amber-600"
+          : "text-muted-foreground";
+  const valueClass =
+    valueTone === "accent"
+      ? "text-3xl font-bold tracking-tight text-accent"
+      : "text-3xl font-bold tracking-tight";
+  return (
+    <div className="p-6 border border-border bg-card">
+      <p className="text-xs font-mono text-muted-foreground uppercase mb-2">{label}</p>
+      <h3 className={valueClass}>{value}</h3>
+      <div className={`mt-4 text-[10px] font-bold ${toneClass}`}>{hint}</div>
+    </div>
+  );
+}
+
 function ReportsPage() {
   const [dbStudents, setDbStudents] = useState<StudentData[]>([]);
   const [dbCourses, setDbCourses] = useState<CourseData[]>([]);
+  const [dbEnrollments, setDbEnrollments] = useState<EnrollmentData[]>([]);
+  const [dbTeachers, setDbTeachers] = useState<TeacherData[]>([]);
+  const [deletedStudents, setDeletedStudents] = useState<StudentData[]>([]);
+  const [deletedCourses, setDeletedCourses] = useState<CourseData[]>([]);
+  const [deletedTeachers, setDeletedTeachers] = useState<TeacherData[]>([]);
+  const [deletedEnrollments, setDeletedEnrollments] = useState<EnrollmentData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Veritabanından verileri çek
@@ -57,13 +128,25 @@ function ReportsPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       try {
-        const [sRes, cRes] = await Promise.all([
+        const [sRes, cRes, eRes, tRes, dsRes, dcRes, dtRes, deRes] = await Promise.all([
           fetch("http://localhost:5157/api/students", { headers }),
           fetch("http://localhost:5157/api/courses", { headers }),
+          fetch("http://localhost:5157/api/enrollments", { headers }),
+          fetch("http://localhost:5157/api/teachers", { headers }),
+          fetch("http://localhost:5157/api/students/deleted", { headers }),
+          fetch("http://localhost:5157/api/courses/deleted", { headers }),
+          fetch("http://localhost:5157/api/teachers/deleted", { headers }),
+          fetch("http://localhost:5157/api/enrollments/deleted", { headers }),
         ]);
 
         if (sRes.ok) setDbStudents(await sRes.json());
         if (cRes.ok) setDbCourses(await cRes.json());
+        if (eRes.ok) setDbEnrollments(await eRes.json());
+        if (tRes.ok) setDbTeachers(await tRes.json());
+        if (dsRes.ok) setDeletedStudents(await dsRes.json());
+        if (dcRes.ok) setDeletedCourses(await dcRes.json());
+        if (dtRes.ok) setDeletedTeachers(await dtRes.json());
+        if (deRes.ok) setDeletedEnrollments(await deRes.json());
       } catch (err) {
         console.error("Rapor verisi çekme hatası:", err);
       } finally {
@@ -73,54 +156,127 @@ function ReportsPage() {
     fetchReportsData();
   }, []);
 
-  // --- DİNAMİK METRİK HESAPLAMALARI ---
+  // --- DİNAMİK KPI (BÜYÜME) HESAPLAMALARI ---
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
 
-  // 1. Toplamlar
-  const totalStudents = dbStudents.length;
-  const activeCourses = dbCourses.length;
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
-  // 2. Benzersiz Eğitmen Sayısı
-  const uniqueInstructors = new Set(
-    dbCourses.map((c) => c.instructor || c.Instructor || "Bilinmeyen"),
-  ).size;
+  // 1. Toplam Öğrenci Büyümesi (geçen aya göre % artış)
+  let studentsThisMonth = 0;
+  let studentsBeforeThisMonth = 0;
+  dbStudents.forEach((s) => {
+    const dRaw = s.date || s.Date;
+    const d = dRaw ? new Date(dRaw) : new Date();
+    if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+      studentsThisMonth++;
+    } else if (d < new Date(currentYear, currentMonth, 1)) {
+      studentsBeforeThisMonth++;
+    }
+  });
+  const studentGrowth =
+    studentsBeforeThisMonth === 0
+      ? studentsThisMonth > 0
+        ? 100
+        : 0
+      : (studentsThisMonth / studentsBeforeThisMonth) * 100;
 
-  // 3. Bu Ayki Yeni Kayıtlar
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  const newEnrollmentsThisMonth = dbStudents.filter((s) => {
-    const d = new Date(s.date || s.Date || new Date());
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-  }).length;
+  // 2. Yeni Kayıtlar (son 30 gün vs önceki 30 gün ivmesi)
+  let enrollmentsLast30 = 0;
+  let enrollmentsPrev30 = 0;
+  dbEnrollments.forEach((e) => {
+    const dRaw = e.enrollmentDate || e.EnrollmentDate || e.date || e.Date;
+    const d = dRaw ? new Date(dRaw) : new Date();
+    if (d >= thirtyDaysAgo) {
+      enrollmentsLast30++;
+    } else if (d >= sixtyDaysAgo && d < thirtyDaysAgo) {
+      enrollmentsPrev30++;
+    }
+  });
+  const enrollmentGrowth =
+    enrollmentsPrev30 === 0
+      ? enrollmentsLast30 > 0
+        ? 100
+        : 0
+      : ((enrollmentsLast30 - enrollmentsPrev30) / enrollmentsPrev30) * 100;
 
-  // 4. Gelir Hesaplamaları
-  let totalMonthlyRevenue = 0;
-  dbCourses.forEach((c) => {
-    const priceString = String(c.price || c.Price || "0");
-    const numericPrice = Number(priceString.replace(/\D/g, "")) || 0;
-    const studentCount = c.students || c.Students || 0;
-    totalMonthlyRevenue += numericPrice * studentCount;
+  // 3. Aylık Gelir (sistemdeki tüm aktif kayıtlar, kursun güncel fiyatı üzerinden) + Yıllık Ciro projeksiyonunun temeli
+  const startOfThisMonth = new Date(currentYear, currentMonth, 1);
+
+  let revTotalNow = 0;
+  let revTotalAsOfLastMonth = 0;
+
+  dbEnrollments.forEach((e) => {
+    const enrolledCourseTitle = e.courseTitle || e.CourseTitle || "";
+    const matchedCourse = dbCourses.find((c) => {
+      const courseTitle = c.title || c.Title || "";
+      return courseTitle.toLowerCase().trim() === enrolledCourseTitle.toLowerCase().trim();
+    });
+
+    if (!matchedCourse) return;
+
+    const priceString = String(matchedCourse.price || matchedCourse.Price || "0");
+    const numericPrice = parseFloat(priceString.replace(/[^\d.]/g, "")) || 0;
+
+    revTotalNow += numericPrice;
+
+    const dRaw = e.enrollmentDate || e.EnrollmentDate || e.date || e.Date;
+    const d = dRaw ? new Date(dRaw) : new Date();
+    if (d < startOfThisMonth) {
+      revTotalAsOfLastMonth += numericPrice;
+    }
   });
 
-  // Para birimi formatlayıcı (Örn: 1.600.000 -> ₺1.6M, 142.000 -> ₺142K)
+  // Gelirlerin Admin Komisyonu (%10)
+  const adminRevThisMonth = revTotalNow * 0.1;
+  const adminRevLastMonth = revTotalAsOfLastMonth * 0.1;
+  const revenueGrowth =
+    adminRevLastMonth === 0
+      ? adminRevThisMonth > 0
+        ? 100
+        : 0
+      : ((adminRevThisMonth - adminRevLastMonth) / adminRevLastMonth) * 100;
+
+  const formatMoney = (val: number) => {
+    if (val >= 1000) return `₺${(val / 1000).toFixed(1)}K`;
+    return `₺${val.toFixed(0)}`;
+  };
+  const dynamicRevenue = formatMoney(adminRevThisMonth);
+
+  // --- DİĞER METRİK HESAPLAMALARI ---
+
+  // Toplamlar
+  const totalStudents = dbStudents.length;
+  const activeCourses = dbCourses.length;
+  const totalTeachers = dbTeachers.length;
+
+  // Silinenler (soft-delete edilmiş kayıtlar)
+  const totalDeletedStudents = deletedStudents.length;
+  const totalDeletedCourses = deletedCourses.length;
+  const totalDeletedTeachers = deletedTeachers.length;
+  const totalDeletedEnrollments = deletedEnrollments.length;
+
+  // Yıllık Ciro (Projeksiyon): aktif kayıtların güncel kurs fiyatı üzerinden gerçek toplamı x 12
   const formatCurrency = (val: number) => {
     if (val >= 1000000) return `₺${(val / 1000000).toFixed(1)}M`;
     if (val >= 1000) return `₺${(val / 1000).toFixed(1)}K`;
     return `₺${val}`;
   };
+  const yillikCiroFormatted = formatCurrency(revTotalNow * 12);
 
-  const monthlyGelirFormatted = formatCurrency(totalMonthlyRevenue);
-  const yillikCiroFormatted = formatCurrency(totalMonthlyRevenue * 12); // Projeksiyon
-
-  // 5. Aylık Kayıt Trendi (Grafik Verisi)
+  // Aylık Kayıt Trendi (Grafik Verisi) — kayıt (enrollment) tarihlerine göre hesaplanır
   const monthCounts = new Array(12).fill(0);
-  dbStudents.forEach((s) => {
-    const d = new Date(s.date || s.Date || new Date());
-    if (d.getFullYear() === currentYear) {
+  dbEnrollments.forEach((e) => {
+    const dRaw = e.enrollmentDate || e.EnrollmentDate || e.date || e.Date;
+    if (!dRaw) return;
+    const d = new Date(dRaw);
+    if (!isNaN(d.getTime()) && d.getFullYear() === currentYear) {
       monthCounts[d.getMonth()] += 1;
     }
   });
 
-  // ÇÖZÜM: maxCount değişkenini burada tanımlıyoruz
   const maxCount = Math.max(...monthCounts, 1);
 
   const monthNames = [
@@ -140,9 +296,7 @@ function ReportsPage() {
 
   const dynamicMonthlyTrend = monthCounts.map((count, index) => ({
     m: monthNames[index],
-    // v: Yüzdelik yükseklik (CSS height için)
     v: Math.round((count / maxCount) * 100),
-    // raw: Gerçek kayıt sayısı (Görselde göstermek için)
     raw: count,
   }));
 
@@ -151,32 +305,215 @@ function ReportsPage() {
       <PageHeader crumb="/ raporlar / performans" />
 
       <div className="p-8 space-y-8 animate-reveal">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 border border-border bg-card">
-            <p className="text-xs font-mono text-muted-foreground uppercase mb-2">
-              Yıllık Ciro (Projeksiyon)
-            </p>
-            <h3 className="text-3xl font-bold tracking-tight text-accent">
-              {isLoading ? "..." : yillikCiroFormatted}
-            </h3>
-            <div className="mt-4 text-[10px] font-bold text-emerald-600">
-              Aylık gelire göre hesaplandı
-            </div>
-          </div>
+        {/* Son Eklenen Öğrenciler — en üstte */}
+        <section className="space-y-4">
+          <SectionHeader title="Son Eklenen Öğrenciler" />
+          <div className="bg-card border border-border overflow-x-auto rounded-md shadow-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-foreground/2 border-b border-border">
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
+                    Öğrenci Bilgisi
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
+                    Kayıtlı Kurs
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
+                    Kayıt Tarihi
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
+                    Durum
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="text-sm divide-y divide-border">
+                {isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-6 py-12 text-center text-muted-foreground animate-pulse font-mono text-xs uppercase tracking-widest"
+                    >
+                      Veriler Yükleniyor...
+                    </td>
+                  </tr>
+                ) : dbStudents.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-6 py-12 text-center text-muted-foreground text-xs"
+                    >
+                      Kayıt bulunamadı.
+                    </td>
+                  </tr>
+                ) : (
+                  dbStudents
+                    .slice(-5)
+                    .reverse()
+                    .map((s: StudentData, index) => {
+                      const studentId = s.id || s.Id;
+                      const fullName =
+                        s.name ||
+                        `${s.firstName || s.FirstName || ""} ${s.lastName || s.LastName || ""}`.trim() ||
+                        "İsimsiz Öğrenci";
+                      const email = s.email || s.Email || "-";
+                      const initials = s.initials || fullName.slice(0, 2).toUpperCase();
 
-          {/* Tamamlama Oranı ve Ortalama Puan henüz veritabanında olmadığı için sabit bırakıldı */}
-          <div className="p-6 border border-border bg-card opacity-80">
-            <p className="text-xs font-mono text-muted-foreground uppercase mb-2">
-              Tamamlama Oranı
-            </p>
-            <h3 className="text-3xl font-bold tracking-tight">74%</h3>
-            <div className="mt-4 text-[10px] font-bold text-muted-foreground">Sistem tahmini</div>
+                      const studentFullName = fullName.trim().toLowerCase();
+                      const rawStudentNumber = s.studentNumber || s.StudentNumber || "";
+                      const studentNumber = String(rawStudentNumber).toLowerCase();
+
+                      const studentEnrollments = dbEnrollments.filter((e) => {
+                        const rawEnrName = e.studentFullName || e.StudentFullName || "";
+                        const enrName = String(rawEnrName).toLowerCase();
+                        const rawEnrNumber = e.studentNumber || e.StudentNumber || "";
+                        const enrNumber = String(rawEnrNumber).toLowerCase();
+                        return (
+                          (enrName && studentFullName && enrName.includes(studentFullName)) ||
+                          (enrNumber && studentNumber && enrNumber === studentNumber)
+                        );
+                      });
+                      const calculatedStatus = studentEnrollments.length > 0 ? "AKTİF" : "PASİF";
+
+                      let displayCourse = "-";
+                      let displayDate = "-";
+
+                      if (studentEnrollments.length > 0) {
+                        const courseNames = studentEnrollments.map((e) => {
+                          return e.courseTitle || e.CourseTitle || "Bilinmeyen Kurs";
+                        });
+                        displayCourse = courseNames.join(", ");
+
+                        const validDates = studentEnrollments
+                          .map((e) => e.enrollmentDate || e.EnrollmentDate || e.date || e.Date)
+                          .filter(Boolean);
+
+                        if (validDates.length > 0) {
+                          const latestDateRaw = validDates[validDates.length - 1];
+                          const dateObj = new Date(latestDateRaw as string);
+                          displayDate = isNaN(dateObj.getTime())
+                            ? (latestDateRaw as string)
+                            : dateObj.toLocaleDateString("tr-TR");
+                        }
+                      }
+
+                      const course =
+                        displayCourse !== "-" ? displayCourse : s.course || s.Course || "-";
+                      const dateRaw = s.date || s.Date;
+                      const date =
+                        displayDate !== "-"
+                          ? displayDate
+                          : dateRaw
+                            ? new Date(dateRaw).toLocaleDateString("tr-TR")
+                            : "-";
+
+                      return (
+                        <tr
+                          key={String(studentId) || index}
+                          className="hover:bg-foreground/2 transition-colors"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="size-10 rounded bg-muted grid place-items-center text-[10px] font-mono text-muted-foreground shrink-0 uppercase">
+                                {initials}
+                              </div>
+                              <div>
+                                <div className="font-semibold">{fullName}</div>
+                                <div className="text-xs text-muted-foreground">{email}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-muted-foreground">{course}</td>
+                          <td className="px-6 py-4 text-xs font-mono text-muted-foreground">
+                            {date}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <span
+                              className={`px-2 py-1 text-[10px] font-bold rounded-sm ${
+                                calculatedStatus === "AKTİF"
+                                  ? "bg-emerald-500/10 text-emerald-600"
+                                  : "bg-stone-500/10 text-stone-500"
+                              }`}
+                            >
+                              {calculatedStatus}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                )}
+              </tbody>
+            </table>
           </div>
-          <div className="p-6 border border-border bg-card opacity-80">
-            <p className="text-xs font-mono text-muted-foreground uppercase mb-2">Ortalama Puan</p>
-            <h3 className="text-3xl font-bold tracking-tight">4.7 / 5</h3>
-            <div className="mt-4 text-[10px] font-bold text-emerald-600">Sistem tahmini</div>
-          </div>
+        </section>
+
+        {/* KPI kartları — üst sıra: toplamlar, alt sıra: aynı sütunda ilgili "silinen" kartı */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <KpiCard
+            label="Toplam Öğrenci"
+            value={isLoading ? "..." : totalStudents}
+            hint={`${studentGrowth > 0 ? "+" : ""}${studentGrowth.toFixed(1)}% geçen aya göre`}
+            hintTone={studentGrowth >= 0 ? "up" : "warn"}
+          />
+          <KpiCard
+            label="Aktif Kurslar"
+            value={isLoading ? "..." : activeCourses}
+            hint="Yeni kurslar eklendi"
+            hintTone="accent"
+          />
+          <KpiCard
+            label="Toplam Öğretmen"
+            value={isLoading ? "..." : totalTeachers}
+            hint="Kurslardaki tekil eğitmen sayısı"
+            hintTone="accent"
+          />
+          <KpiCard
+            label="Yeni Kayıtlar"
+            value={isLoading ? "..." : enrollmentsLast30}
+            hint={`${enrollmentGrowth > 0 ? "+" : ""}${enrollmentGrowth.toFixed(1)}% önceki 30 güne göre`}
+            hintTone={enrollmentGrowth >= 0 ? "up" : "warn"}
+          />
+          <KpiCard
+            label="Silinen Öğrenciler"
+            value={isLoading ? "..." : totalDeletedStudents}
+            hint="Soft-delete ile işaretlenmiş öğrenciler"
+            hintTone="muted"
+          />
+          <KpiCard
+            label="Silinen Kurslar"
+            value={isLoading ? "..." : totalDeletedCourses}
+            hint="Soft-delete ile işaretlenmiş kurslar"
+            hintTone="muted"
+          />
+          <KpiCard
+            label="Silinen Öğretmenler"
+            value={isLoading ? "..." : totalDeletedTeachers}
+            hint="Soft-delete ile işaretlenmiş öğretmenler"
+            hintTone="muted"
+          />
+          <KpiCard
+            label="Silinen Kayıtlar"
+            value={isLoading ? "..." : totalDeletedEnrollments}
+            hint="Soft-delete ile işaretlenmiş kayıtlar"
+            hintTone="muted"
+          />
+        </div>
+
+        {/* Aylık Gelir ve Yıllık Gelir (Projeksiyon) — yan yana */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <KpiCard
+            label="Aylık Gelir"
+            value={isLoading ? "..." : dynamicRevenue}
+            hint={`${revenueGrowth > 0 ? "+" : ""}${revenueGrowth.toFixed(1)}% geçen aya göre`}
+            hintTone={revenueGrowth >= 0 ? "up" : "warn"}
+            valueTone="accent"
+          />
+          <KpiCard
+            label="Yıllık Gelir (Projeksiyon)"
+            value={isLoading ? "..." : yillikCiroFormatted}
+            hint="Aktif kayıtların güncel kurs fiyatına göre yıllık projeksiyonu"
+            hintTone="up"
+            valueTone="accent"
+          />
         </div>
 
         <section className="space-y-4">
@@ -213,27 +550,6 @@ function ReportsPage() {
                 </div>
               ))}
             </div>
-          </div>
-        </section>
-
-        <section className="space-y-4">
-          <SectionHeader title="Genel Metrikler" />
-          <div className="bg-card border border-border divide-y divide-border">
-            {[
-              { k: "Toplam Öğrenci", v: isLoading ? "..." : totalStudents },
-              { k: "Aktif Kurslar", v: isLoading ? "..." : activeCourses },
-              { k: "Bu Ayki Yeni Kayıtlar", v: isLoading ? "..." : newEnrollmentsThisMonth },
-              { k: "Aylık Gelir", v: isLoading ? "..." : monthlyGelirFormatted },
-              { k: "Aktif Eğitmen Sayısı", v: isLoading ? "..." : uniqueInstructors },
-            ].map((row) => (
-              <div
-                key={row.k}
-                className="flex items-center justify-between px-6 py-4 text-sm hover:bg-muted/50 transition-colors"
-              >
-                <span className="text-muted-foreground">{row.k}</span>
-                <span className="font-mono font-bold">{row.v}</span>
-              </div>
-            ))}
           </div>
         </section>
       </div>

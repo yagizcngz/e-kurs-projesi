@@ -41,12 +41,24 @@ namespace EdTechApi.Business.Services
 
         public async Task DeleteStudentAsync(int id)
         {
+            // Artık hard-delete değil, soft-delete yapıyoruz: satır DB'de kalır,
+            // sadece IsDeleted=true işaretlenir. Böylece Raporlar sayfası gerçek
+            // "silinen öğrenci" sayısını gösterebiliyor.
             var student = await _context.Students.FindAsync(id);
             if (student != null)
             {
-                _context.Students.Remove(student);
+                student.IsDeleted = true;
+                student.DeletedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
+        }
+
+        public async Task<IEnumerable<Student>> GetDeletedStudentsAsync()
+        {
+            return await _context.Students
+                .IgnoreQueryFilters()
+                .Where(s => s.IsDeleted)
+                .ToListAsync();
         }
 
         public async Task<Student?> GetStudentByUsernameAsync(string username)

@@ -10,5 +10,10 @@ namespace EdTechApi.Core.Entities
 
         public Student Student { get; set; } = null!;
         public Course Course { get; set; } = null!;
+
+        // Soft-delete: "silme" işlemi artık satırı DB'den kaldırmıyor, sadece işaretliyor.
+        // Böylece Raporlar sayfasındaki "Silinen Kayıtlar" gerçek veriye dayanabiliyor.
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
     }
 }

@@ -60,5 +60,13 @@ namespace EdTechApi.API.Controllers
             await _courseService.DeleteCourseAsync(id);
             return NoContent();
         }
+
+        // Silinmiş (soft-deleted) kurslar — Raporlar sayfasındaki "Silinen Kurslar" kartı için
+        [HttpGet("deleted")]
+        public async Task<IActionResult> GetDeletedCourses()
+        {
+            var deleted = await _courseService.GetDeletedCoursesAsync();
+            return Ok(deleted);
+        }
     }
 }

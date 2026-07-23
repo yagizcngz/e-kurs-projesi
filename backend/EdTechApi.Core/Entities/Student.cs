@@ -20,5 +20,10 @@ namespace EdTechApi.Core.Entities
 
         // Navigation property indicating a student can have many enrollments
         public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
+
+        // Soft-delete: "silme" işlemi artık satırı DB'den kaldırmıyor, sadece işaretliyor.
+        // Böylece Raporlar sayfasındaki "Silinen Öğrenciler" gerçek veriye dayanabiliyor.
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
     }
 }

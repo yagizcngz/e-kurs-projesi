@@ -50,12 +50,36 @@ namespace EdTechApi.Business.Services
 
         public async Task DeleteEnrollmentAsync(int enrollmentId)
         {
+            // Artık hard-delete değil, soft-delete yapıyoruz: satır DB'de kalır,
+            // sadece IsDeleted=true işaretlenir.
             var enrollment = await _context.Enrollments.FindAsync(enrollmentId);
             if (enrollment == null)
                 throw new ArgumentException("Kayıt bulunamadı.");
 
-            _context.Enrollments.Remove(enrollment);
+            enrollment.IsDeleted = true;
+            enrollment.DeletedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<IEnumerable<EnrollmentDto>> GetDeletedEnrollmentsAsync()
+        {
+            // IgnoreQueryFilters: hem Enrollment'ın kendi filtresini hem de Include edilen
+            // Student/Course navigasyonlarındaki filtreleri devre dışı bırakır, böylece
+            // ilişkili kayıt her durumda (o da silinmiş olsa dahi) gelir.
+            return await _context.Enrollments
+                .IgnoreQueryFilters()
+                .Where(e => e.IsDeleted)
+                .Include(e => e.Student)
+                .Include(e => e.Course)
+                .Select(e => new EnrollmentDto
+                {
+                    Id = e.Id,
+                    StudentFullName = e.Student.FirstName + " " + e.Student.LastName,
+                    StudentNumber = e.Student.StudentNumber,
+                    CourseTitle = e.Course.Title,
+                    EnrollmentDate = e.EnrollmentDate
+                })
+                .ToListAsync();
         }
 
         public async Task<IEnumerable<EnrollmentDto>> GetAllEnrollmentsAsync()
