@@ -51,13 +51,28 @@ namespace EdTechApi.Business.Services
 
         public async Task DeleteTeacherAsync(int id)
         {
-            // Artık hard-delete değil, soft-delete yapıyoruz: satır DB'de kalır,
+            // Teacher kaydı hard-delete değil, soft-delete yapılıyor: satır DB'de kalır,
             // sadece IsDeleted=true işaretlenir.
             var teacher = await _context.Teachers.FindAsync(id);
             if (teacher != null)
             {
                 teacher.IsDeleted = true;
                 teacher.DeletedAt = DateTime.UtcNow;
+
+                // Bağlı olan giriş hesabını (User) ise tamamen siliyoruz — kullanıcı
+                // adının tekrar kullanılabilir olması için User satırının DB'den kalkması lazım.
+                if (teacher.UserId.HasValue)
+                {
+                    var user = await _context.Users.FindAsync(teacher.UserId.Value);
+                    if (user != null)
+                    {
+                        // FK constraint'e takılmamak için önce bağlantıyı kaldırıyoruz,
+                        // sonra User'ı siliyoruz.
+                        teacher.UserId = null;
+                        _context.Users.Remove(user);
+                    }
+                }
+
                 await _context.SaveChangesAsync();
             }
         }

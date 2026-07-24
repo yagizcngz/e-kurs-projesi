@@ -223,7 +223,9 @@ function HomePage() {
                         <span className="text-[10px] font-mono text-accent uppercase">
                           {category}
                         </span>
-                        <span className="text-sm font-bold">{price}</span>
+                        <span className="text-sm font-bold">
+                          ₺{String(price).replace(/^₺/, "")}
+                        </span>
                       </div>
                       <h4 className="font-bold mb-4 line-clamp-1">{title}</h4>
                       <div className="flex justify-between items-center text-xs text-muted-foreground">

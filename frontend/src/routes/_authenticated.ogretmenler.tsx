@@ -3,6 +3,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Plus, X, CheckCircle2, AlertCircle, Edit2, Trash2, Upload, Link2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAdminGuard } from "../hooks/useAdminGuard";
+import { BRANCH_OPTIONS } from "../components/courseHelpers";
 
 export const Route = createFileRoute("/_authenticated/ogretmenler")({
   component: TeachersPage,
@@ -371,6 +372,10 @@ function TeachersPage() {
       showToast("Ad ve soyad boş olamaz.", "error");
       return;
     }
+    if (!editBranch) {
+      showToast("Lütfen bir branş seçin.", "error");
+      return;
+    }
 
     setIsSavingProfile(true);
     try {
@@ -419,7 +424,7 @@ function TeachersPage() {
       } else {
         const errorText = await response.text();
         console.error("Öğretmen güncellenirken hata:", errorText);
-        showToast("Öğretmen güncellenirken bir hata oluştu.", "error");
+        showToast(errorText || "Öğretmen güncellenirken bir hata oluştu.", "error");
       }
     } catch (error) {
       console.error(error);
@@ -743,13 +748,30 @@ function TeachersPage() {
 
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Branş</label>
-                  <input
-                    type="text"
+                  <select
+                    required
                     value={editBranch}
                     onChange={(e) => setEditBranch(e.target.value)}
-                    placeholder="Örn: Matematik"
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
-                  />
+                  >
+                    <option value="" disabled>
+                      Bir branş seçin
+                    </option>
+                    {/* Eski kayıtlarda sabit listede olmayan bir branş varsa kaybolmasın diye
+                        ayrıca gösteriyoruz; kaydetmeden önce listeden birine geçirilmeli. */}
+                    {editBranch &&
+                      !BRANCH_OPTIONS.includes(editBranch as (typeof BRANCH_OPTIONS)[number]) && (
+                        <option value={editBranch}>{editBranch} (eski değer)</option>
+                      )}
+                    {BRANCH_OPTIONS.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-muted-foreground">
+                    Bu öğretmen sadece seçilen branştaki kurslara eklenebilecek.
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -928,13 +950,24 @@ function TeachersPage() {
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Branş</label>
-                <input
-                  type="text"
+                <select
+                  required
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newBranch}
                   onChange={(e) => setNewBranch(e.target.value)}
-                  placeholder="Örn: Matematik"
-                />
+                >
+                  <option value="" disabled>
+                    Bir branş seçin
+                  </option>
+                  {BRANCH_OPTIONS.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-muted-foreground">
+                  Bu öğretmen sadece seçilen branştaki kurslara eklenebilecek.
+                </p>
               </div>
 
               <div className="pt-4 flex gap-3">

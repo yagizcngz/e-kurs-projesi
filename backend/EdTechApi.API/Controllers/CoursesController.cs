@@ -1,4 +1,5 @@
 using EdTechApi.Business.Interfaces;
+using EdTechApi.Core.Constants;
 using EdTechApi.Core.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
@@ -10,10 +11,12 @@ namespace EdTechApi.API.Controllers
     public class CoursesController : ControllerBase
     {
         private readonly ICourseService _courseService;
+        private readonly ITeacherService _teacherService;
 
-        public CoursesController(ICourseService courseService)
+        public CoursesController(ICourseService courseService, ITeacherService teacherService)
         {
             _courseService = courseService;
+            _teacherService = teacherService;
         }
 
         [HttpGet]
@@ -43,6 +46,12 @@ namespace EdTechApi.API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateCourse([FromBody] Course newCourse)
         {
+            var (isValid, error) = await ValidateCategoryAndTeacherAsync(newCourse);
+            if (!isValid)
+            {
+                return BadRequest(error);
+            }
+
             await _courseService.AddCourseAsync(newCourse);
             return CreatedAtAction(nameof(GetById), new { id = newCourse.Id }, newCourse);
         }
@@ -53,6 +62,12 @@ namespace EdTechApi.API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateCourse(int id, [FromBody] Course updatedCourse)
         {
+            var (isValid, error) = await ValidateCategoryAndTeacherAsync(updatedCourse);
+            if (!isValid)
+            {
+                return BadRequest(error);
+            }
+
             var success = await _courseService.UpdateCourseAsync(id, updatedCourse);
             if (!success)
             {
@@ -77,6 +92,41 @@ namespace EdTechApi.API.Controllers
         {
             var deleted = await _courseService.GetDeletedCoursesAsync();
             return Ok(deleted);
+        }
+
+        // Bir kursun Kategori'sinin sabit listeden olduğunu ve atanan öğretmenin branşının
+        // bu kategoriyle eşleştiğini doğrular. Bir öğretmen sadece kendi branşıyla aynı
+        // kategorideki bir kursa eğitmen olarak atanabilir. Geçerliyse Category alanını
+        // listedeki kanonik yazıma normalize eder (örn. "fen bilimleri" -> "Fen Bilimleri").
+        private async Task<(bool IsValid, string? Error)> ValidateCategoryAndTeacherAsync(Course course)
+        {
+            var normalizedCategory = BranchOptions.Normalize(course.Category);
+            if (normalizedCategory == null)
+            {
+                return (false,
+                    $"Geçersiz kategori. Lütfen şu değerlerden birini seçin: {string.Join(", ", BranchOptions.All)}");
+            }
+            course.Category = normalizedCategory;
+
+            if (course.TeacherId == null)
+            {
+                return (false, "Lütfen bir eğitmen seçin.");
+            }
+
+            var teacher = await _teacherService.GetTeacherByIdAsync(course.TeacherId.Value);
+            if (teacher == null)
+            {
+                return (false, "Seçilen öğretmen bulunamadı.");
+            }
+
+            if (!string.Equals(teacher.Branch, normalizedCategory, StringComparison.OrdinalIgnoreCase))
+            {
+                var teacherBranch = string.IsNullOrWhiteSpace(teacher.Branch) ? "belirtilmemiş" : teacher.Branch;
+                return (false,
+                    $"Bu öğretmenin branşı ('{teacherBranch}') kursun kategorisiyle ('{normalizedCategory}') eşleşmiyor.");
+            }
+
+            return (true, null);
         }
     }
 }

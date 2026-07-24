@@ -17,6 +17,8 @@ import {
   getCourseImage,
   getCourseEnrollments,
   getTeacherFullName,
+  getTeachersInBranch,
+  BRANCH_OPTIONS,
   type CourseData,
   type EnrollmentDto,
   type TeacherLiteDto,
@@ -45,9 +47,8 @@ export function CourseDetailModal({
   const [editPrice, setEditPrice] = useState("");
   const [editCapacity, setEditCapacity] = useState("");
   // editTeacherId: teachers listesinden seçilen öğretmenin id'si (string olarak, select
-  // elemanının value'su için). Boş string = "öğretmen seçilmedi, serbest metin kullan".
+  // elemanının value'su için). Boş string = "henüz öğretmen seçilmedi".
   const [editTeacherId, setEditTeacherId] = useState("");
-  const [editInstructor, setEditInstructor] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
   const [imageMode, setImageMode] = useState<"upload" | "link">("upload");
@@ -115,7 +116,6 @@ export function CourseDetailModal({
     setEditTeacherId(
       teacherId !== undefined && teacherId !== null && teacherId !== "" ? String(teacherId) : "",
     );
-    setEditInstructor(course.instructor || course.Instructor || "");
     setEditDescription(course.description || course.Description || "");
     setEditImageUrl(course.imageUrl || course.ImageUrl || course.image || course.Image || "");
     setImageMode("upload");
@@ -185,20 +185,26 @@ export function CourseDetailModal({
       showStatusToast("error", "Kurs adı boş olamaz.");
       return;
     }
+    if (!editCategory) {
+      showStatusToast("error", "Lütfen bir kategori seçin.");
+      return;
+    }
+    if (!editTeacherId) {
+      showStatusToast("error", "Lütfen bir eğitmen seçin.");
+      return;
+    }
 
     setIsSaving(true);
     setStatusMessage(null);
     try {
       const token = localStorage.getItem("jwt_token");
 
-      // Bir öğretmen seçildiyse Instructor metnini backend zaten senkronize edecek
+      // Instructor metnini backend zaten senkronize edecek
       // (CourseService.SyncInstructorFromTeacherAsync), ama burada da doğru değeri
       // gönderiyoruz ki UI, sunucu yanıtı dönene kadar da tutarlı görünsün.
       const selectedTeacher = teachers.find((t) => String(t.id ?? t.Id) === editTeacherId);
-      const instructorToSend = editTeacherId
-        ? getTeacherFullName(selectedTeacher || {})
-        : editInstructor;
-      const teacherIdToSend = editTeacherId ? Number(editTeacherId) : null;
+      const instructorToSend = getTeacherFullName(selectedTeacher || {});
+      const teacherIdToSend = Number(editTeacherId);
 
       const response = await fetch(`${API_BASE}/api/courses/${courseId}`, {
         method: "PUT",
@@ -244,7 +250,7 @@ export function CourseDetailModal({
       } else {
         const errorData = await response.text();
         console.error("Kurs güncellenirken backend hatası:", errorData);
-        showStatusToast("error", "Kurs güncellenirken bir hata oluştu.");
+        showStatusToast("error", errorData || "Kurs güncellenirken bir hata oluştu.");
       }
     } catch (error) {
       console.error(error);
@@ -255,6 +261,17 @@ export function CourseDetailModal({
   };
 
   const editPreviewSrc = editImageUrl ? resolveImageSrc(editImageUrl) : getCourseImage(course, 0);
+  // Eğitmen dropdown'ı sadece seçili kategoriyle aynı branştaki öğretmenleri gösterir.
+  const teachersInCategory = getTeachersInBranch(teachers, editCategory);
+
+  const handleCategoryChange = (newCategory: string) => {
+    setEditCategory(newCategory);
+    // Yeni kategoride mevcut seçili öğretmen artık uygun değilse seçimi sıfırla.
+    const stillValid = getTeachersInBranch(teachers, newCategory).some(
+      (t) => String(t.id ?? t.Id) === editTeacherId,
+    );
+    if (!stillValid) setEditTeacherId("");
+  };
 
   return (
     <div
@@ -402,22 +419,43 @@ export function CourseDetailModal({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Kategori</label>
-                  <input
-                    type="text"
+                  <select
                     value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value)}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
-                  />
+                  >
+                    <option value="" disabled>
+                      Bir kategori seçin
+                    </option>
+                    {/* Eski kayıtlarda sabit listede olmayan bir kategori varsa, kaybolmasın
+                        diye ayrıca gösteriyoruz; admin dilerse listeden birine geçirebilir. */}
+                    {editCategory &&
+                      !BRANCH_OPTIONS.includes(editCategory as (typeof BRANCH_OPTIONS)[number]) && (
+                        <option value={editCategory}>{editCategory} (eski değer)</option>
+                      )}
+                    {BRANCH_OPTIONS.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Eğitmen</label>
                   <select
                     value={editTeacherId}
                     onChange={(e) => setEditTeacherId(e.target.value)}
-                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                    disabled={!editCategory}
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors disabled:opacity-60"
                   >
-                    <option value="">Serbest metin (aşağıdan yazın)</option>
-                    {teachers.map((t) => {
+                    <option value="" disabled>
+                      {!editCategory
+                        ? "Önce bir kategori seçin"
+                        : teachersInCategory.length === 0
+                          ? "Bu branşta öğretmen yok"
+                          : "Bir eğitmen seçin"}
+                    </option>
+                    {teachersInCategory.map((t) => {
                       const id = t.id ?? t.Id;
                       return (
                         <option key={id} value={id}>
@@ -426,15 +464,10 @@ export function CourseDetailModal({
                       );
                     })}
                   </select>
-                  {!editTeacherId && (
-                    <input
-                      type="text"
-                      value={editInstructor}
-                      onChange={(e) => setEditInstructor(e.target.value)}
-                      placeholder="Eğitmen adını yazın"
-                      className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors mt-1.5"
-                    />
-                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    Sadece "{editCategory || "seçilen kategori"}" branşındaki öğretmenler
+                    listelenir.
+                  </p>
                 </div>
               </div>
 

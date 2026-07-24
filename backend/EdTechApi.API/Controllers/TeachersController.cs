@@ -1,4 +1,5 @@
 using EdTechApi.Business.Interfaces;
+using EdTechApi.Core.Constants;
 using EdTechApi.Core.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -38,6 +39,15 @@ namespace EdTechApi.API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateTeacher([FromBody] Teacher newTeacher)
         {
+            // Branş, kurs kategorileriyle eşleştirme yapılabilmesi için sabit listeden
+            // seçilmiş olmalı — serbest metin artık kabul edilmiyor.
+            if (!BranchOptions.IsValid(newTeacher.Branch))
+            {
+                return BadRequest(
+                    $"Geçersiz branş. Lütfen şu değerlerden birini seçin: {string.Join(", ", BranchOptions.All)}");
+            }
+            newTeacher.Branch = BranchOptions.Normalize(newTeacher.Branch);
+
             await _teacherService.AddTeacherAsync(newTeacher);
             return CreatedAtAction(nameof(GetById), new { id = newTeacher.Id }, newTeacher);
         }
@@ -46,6 +56,15 @@ namespace EdTechApi.API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateTeacher(int id, [FromBody] Teacher updatedTeacher)
         {
+            // Branş, kurs kategorileriyle eşleştirme yapılabilmesi için sabit listeden
+            // seçilmiş olmalı — serbest metin artık kabul edilmiyor.
+            if (!BranchOptions.IsValid(updatedTeacher.Branch))
+            {
+                return BadRequest(
+                    $"Geçersiz branş. Lütfen şu değerlerden birini seçin: {string.Join(", ", BranchOptions.All)}");
+            }
+            updatedTeacher.Branch = BranchOptions.Normalize(updatedTeacher.Branch);
+
             var success = await _teacherService.UpdateTeacherAsync(id, updatedTeacher);
             if (!success)
             {

@@ -1,5 +1,21 @@
 export const API_BASE = "http://localhost:5157";
 
+// --- YENİ EKLENEN SABİT LİSTE ---
+// Kurs "Kategori" alanı ile öğretmen "Branş" alanı artık aynı sabit listeden seçiliyor.
+// Bir öğretmen sadece kendi branşıyla aynı kategorideki kurslara eğitmen olarak
+// atanabilsin diye iki alan da serbest metin yerine bu ortak listeyi kullanıyor.
+// NOT: Bu liste backend'deki BranchOptions.cs ile birebir aynı tutulmalı.
+export const BRANCH_OPTIONS = [
+  "Fen Bilimleri",
+  "Sosyal Bilimler",
+  "Yazılım",
+  "Yabancı Dil",
+  "Tasarım",
+  "Genel",
+] as const;
+
+export type BranchOption = (typeof BRANCH_OPTIONS)[number];
+
 export interface CourseData {
   id?: string | number;
   Id?: string | number;
@@ -70,6 +86,14 @@ export interface TeacherLiteDto {
 
 export const getTeacherFullName = (t: TeacherLiteDto) =>
   `${t.firstName || t.FirstName || ""} ${t.lastName || t.LastName || ""}`.trim();
+
+// Bir kategoriyle aynı branştaki öğretmenleri döndürür. Branşı boş/tanımsız olan
+// öğretmenler hiçbir kategoriyle eşleşmez — önce profillerinden branş seçmeleri gerekir.
+export const getTeachersInBranch = (teachers: TeacherLiteDto[], category: string) => {
+  const target = category.trim().toLowerCase();
+  if (!target) return [];
+  return teachers.filter((t) => (t.branch || t.Branch || "").trim().toLowerCase() === target);
+};
 
 export const resolveImageSrc = (url: string) =>
   url.startsWith("http") || url.startsWith("data:") ? url : `${API_BASE}${url}`;

@@ -5,6 +5,9 @@ import { useState, useEffect } from "react";
 import { CourseDetailModal } from "../components/CourseDetailModal";
 import {
   getCourseImage,
+  getTeacherFullName,
+  getTeachersInBranch,
+  BRANCH_OPTIONS,
   type CourseData,
   type EnrollmentDto,
   type TeacherLiteDto,
@@ -32,37 +35,6 @@ const parseJwt = (token: string) => {
   }
 };
 
-const guessCategory = (title: string) => {
-  if (!title) return "Kategori Bekleniyor...";
-  const t = title.toLowerCase();
-  if (
-    t.includes("felsefe") ||
-    t.includes("tarih") ||
-    t.includes("psikoloji") ||
-    t.includes("coğrafya")
-  )
-    return "Sosyal Bilimler";
-  if (
-    t.includes("matematik") ||
-    t.includes("fizik") ||
-    t.includes("kimya") ||
-    t.includes("biyoloji")
-  )
-    return "Fen Bilimleri";
-  if (
-    t.includes("c#") ||
-    t.includes("react") ||
-    t.includes("python") ||
-    t.includes("yazılım") ||
-    t.includes("web")
-  )
-    return "Yazılım";
-  if (t.includes("ingilizce") || t.includes("dil") || t.includes("almanca")) return "Yabancı Dil";
-  if (t.includes("tasarım") || t.includes("ui") || t.includes("ux") || t.includes("photoshop"))
-    return "Tasarım";
-  return "Genel";
-};
-
 function CoursesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dbCourses, setDbCourses] = useState<CourseData[]>([]);
@@ -75,6 +47,10 @@ function CoursesPage() {
   const [newCapacity, setNewCapacity] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  // newTeacherId: teachers listesinden seçilen öğretmenin id'si (string olarak, select
+  // elemanının value'su için). Boş string = "henüz öğretmen seçilmedi".
+  const [newTeacherId, setNewTeacherId] = useState("");
 
   // KURS DETAY MODALI İÇİN STATE'LER (düzenleme formu artık CourseDetailModal içinde)
   const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
@@ -186,14 +162,40 @@ function CoursesPage() {
     setNewCapacity("");
     setNewPrice("");
     setNewDescription("");
+    setNewCategory("");
+    setNewTeacherId("");
     setIsModalOpen(false);
+  };
+
+  // "Yeni Kurs" modalını açarken, giriş yapan kullanıcı bir öğretmense (dbTeachers
+  // listesinde adı eşleşen bir kayıt varsa) formu onun branşı ve kendisiyle önceden
+  // dolduruyoruz; admin dilerse değiştirebilir.
+  const handleOpenAddModal = () => {
+    const selfTeacher = dbTeachers.find(
+      (t) => getTeacherFullName(t).trim().toLowerCase() === currentUser.name.trim().toLowerCase(),
+    );
+    if (selfTeacher) {
+      const branch = selfTeacher.branch || selfTeacher.Branch || "";
+      setNewCategory(branch);
+      setNewTeacherId(String(selfTeacher.id ?? selfTeacher.Id ?? ""));
+    }
+    setIsModalOpen(true);
   };
 
   const handleAddCourse = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const autoCategory = guessCategory(newTitle);
-    const instructorName = currentUser.name;
+    if (!newCategory) {
+      showToast("Lütfen bir kategori seçin.", "error");
+      return;
+    }
+    if (!newTeacherId) {
+      showToast("Lütfen bir eğitmen seçin.", "error");
+      return;
+    }
+
+    const selectedTeacher = dbTeachers.find((t) => String(t.id ?? t.Id) === newTeacherId);
+    const instructorName = getTeacherFullName(selectedTeacher || {});
 
     try {
       const token = localStorage.getItem("jwt_token");
@@ -205,8 +207,9 @@ function CoursesPage() {
         },
         body: JSON.stringify({
           Title: newTitle,
-          Category: autoCategory,
+          Category: newCategory,
           Instructor: instructorName,
+          TeacherId: Number(newTeacherId),
           MaxCapacity: Number(newCapacity) || 0,
           Price: Number(newPrice) || 0,
           Description: newDescription,
@@ -220,7 +223,7 @@ function CoursesPage() {
       } else {
         const errorData = await response.text();
         console.error("Backend'den dönen hata:", errorData);
-        showToast("Kayıt başarısız! Formu kontrol edin.", "error");
+        showToast(errorData || "Kayıt başarısız! Formu kontrol edin.", "error");
       }
     } catch (error) {
       showToast("Sunucuya ulaşılamıyor.", "error");
@@ -344,7 +347,7 @@ function CoursesPage() {
               </button>
 
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={handleOpenAddModal}
                 className="flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
               >
                 <Plus className="size-4" />
@@ -473,6 +476,56 @@ function CoursesPage() {
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="Örn: Felsefe Tarihi 101"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Kategori</label>
+                  <select
+                    required
+                    value={newCategory}
+                    onChange={(e) => {
+                      const category = e.target.value;
+                      setNewCategory(category);
+                      const stillValid = getTeachersInBranch(dbTeachers, category).some(
+                        (t) => String(t.id ?? t.Id) === newTeacherId,
+                      );
+                      if (!stillValid) setNewTeacherId("");
+                    }}
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                  >
+                    <option value="" disabled>
+                      Bir kategori seçin
+                    </option>
+                    {BRANCH_OPTIONS.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Eğitmen</label>
+                  <select
+                    required
+                    value={newTeacherId}
+                    onChange={(e) => setNewTeacherId(e.target.value)}
+                    disabled={!newCategory}
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors disabled:opacity-60"
+                  >
+                    <option value="" disabled>
+                      {!newCategory ? "Önce bir kategori seçin" : "Bir eğitmen seçin"}
+                    </option>
+                    {getTeachersInBranch(dbTeachers, newCategory).map((t) => {
+                      const id = t.id ?? t.Id;
+                      return (
+                        <option key={id} value={id}>
+                          {getTeacherFullName(t)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
