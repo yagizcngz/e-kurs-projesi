@@ -5,6 +5,7 @@ namespace EdTechApi.Core.Entities
         public int Id { get; set; }
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
+        public string TeacherNumber { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string? Branch { get; set; } // Uzmanlık alanı / branş (opsiyonel)
         public DateTime Date { get; set; } = DateTime.UtcNow;

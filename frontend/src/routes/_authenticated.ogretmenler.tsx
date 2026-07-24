@@ -25,6 +25,8 @@ interface TeacherData {
   ProfilePictureUrl?: string;
   aboutMe?: string;
   AboutMe?: string;
+  teacherNumber?: string;
+  TeacherNumber?: string;
 }
 
 interface CourseData {
@@ -552,6 +554,9 @@ function TeachersPage() {
                           </div>
                           <div>
                             <div className="font-semibold group-hover:underline">{fullName}</div>
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {t.teacherNumber || t.TeacherNumber || currentId || "-"}
+                            </div>
                           </div>
                         </div>
                       </td>

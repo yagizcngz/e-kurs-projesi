@@ -41,7 +41,7 @@ namespace EdTechApi.Business.Services
 
         public async Task DeleteStudentAsync(int id)
         {
-            // Artık hard-delete değil, soft-delete yapıyoruz: satır DB'de kalır,
+            // Student kaydı hard-delete değil, soft-delete yapılıyor: satır DB'de kalır,
             // sadece IsDeleted=true işaretlenir. Böylece Raporlar sayfası gerçek
             // "silinen öğrenci" sayısını gösterebiliyor.
             var student = await _context.Students.FindAsync(id);
@@ -49,6 +49,22 @@ namespace EdTechApi.Business.Services
             {
                 student.IsDeleted = true;
                 student.DeletedAt = DateTime.UtcNow;
+
+                // Bağlı olan giriş hesabını (User) ise tamamen siliyoruz — Student
+                // aksine burada geçmiş kaydı tutmaya gerek yok, ve kullanıcı adının
+                // tekrar kullanılabilir olması için User satırının DB'den kalkması lazım.
+                if (student.UserId.HasValue)
+                {
+                    var user = await _context.Users.FindAsync(student.UserId.Value);
+                    if (user != null)
+                    {
+                        // FK constraint'e takılmamak için önce bağlantıyı kaldırıyoruz,
+                        // sonra User'ı siliyoruz.
+                        student.UserId = null;
+                        _context.Users.Remove(user);
+                    }
+                }
+
                 await _context.SaveChangesAsync();
             }
         }

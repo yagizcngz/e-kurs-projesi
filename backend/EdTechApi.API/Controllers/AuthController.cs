@@ -80,13 +80,18 @@ namespace EdTechApi.API.Controllers
                 {
                     FirstName = request.FirstName,
                     LastName = request.LastName,
-                    StudentNumber = "OGR-" + newUser.Id.ToString().PadLeft(4, '0'), 
                     Email = request.Email ?? (request.Username + "@ekurs.com"), // Gelen emaili kullan
                     Date = DateTime.Now,
                     UserId = newUser.Id 
                 };
 
                 await _context.Students.AddAsync(newStudent);
+                await _context.SaveChangesAsync(); // Bu satırdan sonra newStudent.Id atanmış olur
+
+                // Öğrenci numarasını, sistemdeki diğer öğrencilerle aynı formatta üretiyoruz:
+                // "YY" (yılın son 2 hanesi) + Student.Id'nin 7 haneye tamamlanmış hali (örn. 260000014)
+                string yearPrefix = DateTime.Now.ToString("yy");
+                newStudent.StudentNumber = yearPrefix + newStudent.Id.ToString().PadLeft(7, '0');
                 await _context.SaveChangesAsync();
             }
             // 3. Eğer rolü 'Teacher' ise anında bir Öğretmen (Teacher) profili oluştur
@@ -101,6 +106,12 @@ namespace EdTechApi.API.Controllers
                      UserId = newUser.Id
                  };
                  await _context.Teachers.AddAsync(newTeacher);
+                 await _context.SaveChangesAsync(); // Bu satırdan sonra newTeacher.Id atanmış olur
+
+                 // Öğrencilerle aynı formatta numara üretiyoruz:
+                 // "YY" (yılın son 2 hanesi) + Id'nin 7 haneye tamamlanmış hali
+                 string teacherYearPrefix = DateTime.Now.ToString("yy");
+                 newTeacher.TeacherNumber = teacherYearPrefix + newTeacher.Id.ToString().PadLeft(7, '0');
                  await _context.SaveChangesAsync();
             }
 
