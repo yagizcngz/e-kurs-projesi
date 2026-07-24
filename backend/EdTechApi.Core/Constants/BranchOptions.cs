@@ -1,6 +1,3 @@
-using System;
-using System.Linq;
-
 namespace EdTechApi.Core.Constants
 {
     // Öğretmen "Branş" alanı ile kurs "Kategori" alanı için ortak, sabit değer listesi.

@@ -11,10 +11,12 @@ namespace EdTechApi.API.Controllers
     public class TeachersController : ControllerBase
     {
         private readonly ITeacherService _teacherService;
+        private readonly ICourseService _courseService;
 
-        public TeachersController(ITeacherService teacherService)
+        public TeachersController(ITeacherService teacherService, ICourseService courseService)
         {
             _teacherService = teacherService;
+            _courseService = courseService;
         }
 
         [HttpGet]
@@ -35,7 +37,7 @@ namespace EdTechApi.API.Controllers
             return Ok(teacher);
         }
 
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,superadmin")]
         [HttpPost]
         public async Task<IActionResult> CreateTeacher([FromBody] Teacher newTeacher)
         {
@@ -52,7 +54,7 @@ namespace EdTechApi.API.Controllers
             return CreatedAtAction(nameof(GetById), new { id = newTeacher.Id }, newTeacher);
         }
 
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,superadmin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateTeacher(int id, [FromBody] Teacher updatedTeacher)
         {
@@ -63,7 +65,33 @@ namespace EdTechApi.API.Controllers
                 return BadRequest(
                     $"Geçersiz branş. Lütfen şu değerlerden birini seçin: {string.Join(", ", BranchOptions.All)}");
             }
-            updatedTeacher.Branch = BranchOptions.Normalize(updatedTeacher.Branch);
+            var normalizedBranch = BranchOptions.Normalize(updatedTeacher.Branch);
+            updatedTeacher.Branch = normalizedBranch;
+
+            var existingTeacher = await _teacherService.GetTeacherByIdAsync(id);
+            if (existingTeacher == null)
+            {
+                return NotFound("Öğretmen bulunamadı.");
+            }
+
+            // Branş fiilen değiştiriliyorsa ve öğretmenin mevcut (eski) branşıyla eşleşen,
+            // hâlâ ona atanmış kurs(lar) varsa değişikliğe izin verme — aksi halde o kurslar
+            // öğretmenin yeni branşıyla eşleşmeyen "yetim" kayıtlar haline gelir.
+            if (!string.Equals(existingTeacher.Branch, normalizedBranch, StringComparison.OrdinalIgnoreCase))
+            {
+                var allCourses = await _courseService.GetAllCoursesAsync();
+                var coursesInCurrentBranch = allCourses
+                    .Where(c => c.TeacherId == id &&
+                                string.Equals(c.Category, existingTeacher.Branch, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (coursesInCurrentBranch.Any())
+                {
+                    var titles = string.Join(", ", coursesInCurrentBranch.Select(c => c.Title));
+                    return BadRequest(
+                        $"Bu öğretmenin branşı değiştirilemez: '{existingTeacher.Branch}' branşındaki şu kurs(lar)a hâlâ atanmış: {titles}. Önce bu kursları başka bir eğitmene atayın, sonra branşı değiştirin.");
+                }
+            }
 
             var success = await _teacherService.UpdateTeacherAsync(id, updatedTeacher);
             if (!success)
@@ -73,6 +101,7 @@ namespace EdTechApi.API.Controllers
             return NoContent();
         }
 
+        [Authorize(Roles = "Admin,superadmin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTeacher(int id)
         {
@@ -80,6 +109,7 @@ namespace EdTechApi.API.Controllers
             return NoContent();
         }
 
+        [Authorize(Roles = "Admin,superadmin")]
         [HttpPost("bulk-delete")]
         public async Task<IActionResult> DeleteMultipleTeachers([FromBody] List<int> ids)
         {

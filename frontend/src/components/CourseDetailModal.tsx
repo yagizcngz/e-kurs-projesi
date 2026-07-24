@@ -110,12 +110,23 @@ export function CourseDetailModal({
 
   const handleStartEdit = () => {
     setEditTitle(course.title || course.Title || "");
-    setEditCategory(course.category || course.Category || "");
+    const currentCategory = course.category || course.Category || "";
+    setEditCategory(currentCategory);
     setEditPrice(String(course.price ?? course.Price ?? ""));
     setEditCapacity(String(course.maxCapacity ?? course.MaxCapacity ?? ""));
-    setEditTeacherId(
-      teacherId !== undefined && teacherId !== null && teacherId !== "" ? String(teacherId) : "",
+
+    const currentTeacherIdStr =
+      teacherId !== undefined && teacherId !== null && teacherId !== "" ? String(teacherId) : "";
+    // Kursa kayıtlı öğretmenin branşı, başka bir yerden (Öğretmenler sayfasından) değiştirilmiş
+    // olabilir. Bu durumda id artık bu kategori için geçersizdir; formda "stale" (eskimiş)
+    // haliyle taşımak yerine seçimi sıfırlıyoruz — aksi halde <select> görsel olarak listedeki
+    // tek/başka bir öğretmeni gösterirken, state hâlâ eski (artık geçersiz) öğretmeni tutar ve
+    // kullanıcı hiç dokunmadan Kaydet'e basarsa yanlış öğretmen gönderilir.
+    const stillValidTeacher = getTeachersInBranch(teachers, currentCategory).some(
+      (t) => String(t.id ?? t.Id) === currentTeacherIdStr,
     );
+    setEditTeacherId(stillValidTeacher ? currentTeacherIdStr : "");
+
     setEditDescription(course.description || course.Description || "");
     setEditImageUrl(course.imageUrl || course.ImageUrl || course.image || course.Image || "");
     setImageMode("upload");

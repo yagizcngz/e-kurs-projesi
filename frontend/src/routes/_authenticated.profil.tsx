@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader, SectionHeader } from "../components/PageHeader";
-import { CheckCircle2, Camera, Edit2, UploadCloud } from "lucide-react";
+import { CheckCircle2, Edit2, UploadCloud } from "lucide-react";
 import { useEffect, useMemo, useState, useRef } from "react";
 
 export const Route = createFileRoute("/_authenticated/profil")({
@@ -294,9 +294,6 @@ function ProfilePage() {
                     {initials || "SU"}
                   </div>
                 )}
-                <span className="absolute -bottom-2 right-0 inline-flex items-center justify-center rounded-full bg-foreground text-background w-8 h-8 shadow-md">
-                  <Camera className="w-4 h-4" />
-                </span>
               </div>
               <div>
                 <h2 className="text-xl font-bold">{name || "Kullanıcı"}</h2>
