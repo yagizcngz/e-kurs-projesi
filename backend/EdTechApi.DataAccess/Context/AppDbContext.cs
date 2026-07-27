@@ -19,6 +19,9 @@ namespace EdTechApi.DataAccess.Context
         // Yeni eklediğimiz Teachers (Öğretmenler) tablosu
         public DbSet<Teacher> Teachers { get; set; }
 
+        public DbSet<SystemSetting> SystemSettings { get; set; }
+        public DbSet<Category> Categories { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // 1. Öğrenci numarasının benzersiz (Unique) olması kuralı:

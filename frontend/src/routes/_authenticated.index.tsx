@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader, SectionHeader } from "../components/PageHeader";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { CourseDetailModal } from "../components/CourseDetailModal";
 import {
   getCourseImage,
   getCourseEnrollments,
+  fetchCategories,
   type CourseData,
   type TeacherLiteDto,
 } from "../components/courseHelpers";
@@ -78,17 +80,22 @@ interface EnrollmentData {
 }
 
 function HomePage() {
+  const { t, i18n } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [dbStudents, setDbStudents] = useState<StudentData[]>([]);
   const [dbTeachers, setDbTeachers] = useState<TeacherLiteDto[]>([]);
   const [dbCourses, setDbCourses] = useState<CourseData[]>([]);
   const [dbEnrollments, setDbEnrollments] = useState<EnrollmentData[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [showAllPopular, setShowAllPopular] = useState(false);
 
   // Kurs tanıtım/düzenleme modalı için (Kurslar sayfasındakiyle aynı bileşen)
-  const [currentUser, setCurrentUser] = useState({ name: "Bilinmiyor", role: "Öğrenci" });
+  const [currentUser, setCurrentUser] = useState({
+    name: t("dashboard.unknown"),
+    role: t("dashboard.studentRole"),
+  });
   const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
 
   useEffect(() => {
@@ -108,6 +115,9 @@ function HomePage() {
         if (cRes.ok) setDbCourses(await cRes.json());
         if (eRes.ok) setDbEnrollments(await eRes.json());
         if (tRes.ok) setDbTeachers(await tRes.json());
+
+        const cats = await fetchCategories(token || undefined);
+        setCategories(cats);
       } catch (err) {
         console.error("Veri çekme hatası:", err);
       } finally {
@@ -123,15 +133,15 @@ function HomePage() {
           payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ||
           payload.name ||
           payload.unique_name ||
-          "Bilinmeyen Eğitmen";
+          t("dashboard.unknownInstructor");
         const role =
           payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
           payload.role ||
-          "Öğrenci";
+          t("dashboard.studentRole");
         setCurrentUser({ name, role });
       }
     }
-  }, []);
+  }, [t]);
 
   const canManage =
     currentUser.role === "Eğitmen" ||
@@ -165,36 +175,48 @@ function HomePage() {
 
   return (
     <>
-      <PageHeader crumb="/ ana sayfa" searchValue={searchTerm} onSearchChange={setSearchTerm} />
+      <PageHeader
+        crumb={t("dashboard.breadcrumb")}
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+      />
 
       <div className="p-8 space-y-8 animate-reveal">
         <section className="space-y-4">
           <SectionHeader
-            title="Popüler Kurslar"
+            title={t("dashboard.popularCourses")}
             right={
               <button
                 onClick={() => setShowAllPopular(!showAllPopular)}
                 className="text-xs font-mono text-accent hover:underline transition-all"
               >
-                {showAllPopular ? "DAHA AZ GÖSTER" : "DAHA FAZLA GÖSTER"}
+                {showAllPopular ? t("dashboard.showLess") : t("dashboard.showMore")}
               </button>
             }
           />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {isLoading ? (
               <div className="col-span-full py-8 text-center text-muted-foreground text-xs border border-border bg-card animate-pulse">
-                Kurslar yükleniyor...
+                {t("dashboard.loadingCourses")}
               </div>
             ) : displayedPopularCourses.length === 0 ? (
               <div className="col-span-full py-8 text-center text-muted-foreground text-xs border border-border bg-card">
-                Kurs bulunamadı.
+                {t("dashboard.noCoursesFound")}
               </div>
             ) : (
               displayedPopularCourses.map((c: CourseData, index) => {
-                const title = c.title || c.Title || "İsimsiz Kurs";
-                const category = c.category || c.Category || "GENEL";
+                const originalTitle = c.title || c.Title || t("dashboard.unnamedCourse");
+                const originalCategory = c.category || c.Category || t("dashboard.general");
+
+                const title = i18n.exists(`dynamic.courses.${originalTitle}`)
+                  ? t(`dynamic.courses.${originalTitle}`)
+                  : originalTitle;
+                const category = i18n.exists(`dynamic.categories.${originalCategory}`)
+                  ? t(`dynamic.categories.${originalCategory}`)
+                  : originalCategory;
+
                 const price = c.price || c.Price || "₺0";
-                const instructor = c.instructor || c.Instructor || "Bilinmiyor";
+                const instructor = c.instructor || c.Instructor || t("dashboard.unknown");
                 const studentsCount = getCourseEnrollments(c, dbEnrollments).length;
 
                 return (
@@ -229,8 +251,12 @@ function HomePage() {
                       </div>
                       <h4 className="font-bold mb-4 line-clamp-1">{title}</h4>
                       <div className="flex justify-between items-center text-xs text-muted-foreground">
-                        <span>Eğitmen: {instructor}</span>
-                        <span className="font-mono">{studentsCount} Öğrenci</span>
+                        <span>
+                          {t("dashboard.instructor")} {instructor}
+                        </span>
+                        <span className="font-mono">
+                          {studentsCount} {t("dashboard.studentCount")}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -248,6 +274,7 @@ function HomePage() {
           canManage={canManage}
           enrollments={dbEnrollments}
           teachers={dbTeachers}
+          categories={categories}
           onSaved={handleCourseSaved}
         />
       )}

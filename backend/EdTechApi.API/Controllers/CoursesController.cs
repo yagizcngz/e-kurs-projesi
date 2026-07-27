@@ -1,8 +1,10 @@
 using EdTechApi.Business.Interfaces;
 using EdTechApi.Core.Constants;
 using EdTechApi.Core.Entities;
+using EdTechApi.DataAccess.Context;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 
 namespace EdTechApi.API.Controllers
 {
@@ -12,11 +14,13 @@ namespace EdTechApi.API.Controllers
     {
         private readonly ICourseService _courseService;
         private readonly ITeacherService _teacherService;
+        private readonly AppDbContext _context;
 
-        public CoursesController(ICourseService courseService, ITeacherService teacherService)
+        public CoursesController(ICourseService courseService, ITeacherService teacherService, AppDbContext context)
         {
             _courseService = courseService;
             _teacherService = teacherService;
+            _context = context;
         }
 
         [HttpGet]
@@ -100,12 +104,14 @@ namespace EdTechApi.API.Controllers
         // listedeki kanonik yazıma normalize eder (örn. "fen bilimleri" -> "Fen Bilimleri").
         private async Task<(bool IsValid, string? Error)> ValidateCategoryAndTeacherAsync(Course course)
         {
-            var normalizedCategory = BranchOptions.Normalize(course.Category);
-            if (normalizedCategory == null)
+            var category = await _context.Categories.FirstOrDefaultAsync(c => c.Name.ToLower() == course.Category.ToLower());
+            if (category == null)
             {
+                var allCategories = await _context.Categories.Select(c => c.Name).ToListAsync();
                 return (false,
-                    $"Geçersiz kategori. Lütfen şu değerlerden birini seçin: {string.Join(", ", BranchOptions.All)}");
+                    $"Geçersiz kategori. Lütfen şu değerlerden birini seçin: {string.Join(", ", allCategories)}");
             }
+            var normalizedCategory = category.Name;
             course.Category = normalizedCategory;
 
             if (course.TeacherId == null)

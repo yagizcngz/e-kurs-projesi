@@ -10,6 +10,7 @@ import {
   Link2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   API_BASE,
@@ -18,7 +19,6 @@ import {
   getCourseEnrollments,
   getTeacherFullName,
   getTeachersInBranch,
-  BRANCH_OPTIONS,
   type CourseData,
   type EnrollmentDto,
   type TeacherLiteDto,
@@ -30,6 +30,7 @@ interface CourseDetailModalProps {
   canManage: boolean;
   enrollments: EnrollmentDto[];
   teachers: TeacherLiteDto[];
+  categories: string[];
   onSaved: (updated: CourseData) => void;
 }
 
@@ -39,8 +40,10 @@ export function CourseDetailModal({
   canManage,
   enrollments,
   teachers,
+  categories,
   onSaved,
 }: CourseDetailModalProps) {
+  const { t, i18n } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editCategory, setEditCategory] = useState("");
@@ -65,13 +68,25 @@ export function CourseDetailModal({
     setStatusMessage(null);
   }, [courseId]);
 
-  const title = course.title || course.Title || "İsimsiz Kurs";
-  const category = course.category || course.Category || "Genel";
+  const originalTitle = course.title || course.Title || t("courseModal.unnamedCourse");
+  const originalCategory = course.category || course.Category || t("courseModal.general");
+  const originalInstructor =
+    course.instructor || course.Instructor || t("courseModal.unknownInstructor");
+
+  const title = i18n.exists(`dynamic.courses.${originalTitle}`)
+    ? t(`dynamic.courses.${originalTitle}`)
+    : originalTitle;
+  const category = i18n.exists(`dynamic.categories.${originalCategory}`)
+    ? t(`dynamic.categories.${originalCategory}`)
+    : originalCategory;
+  const instructor = originalInstructor;
+
   const price = course.price || course.Price || "0";
-  const instructor = course.instructor || course.Instructor || "Bilinmiyor";
   const teacherId = course.teacherId ?? course.TeacherId;
   const capacity = course.maxCapacity || course.MaxCapacity;
+
   const description = course.description || course.Description;
+
   const imageUrl = getCourseImage(course, 0);
   const courseEnrollments = getCourseEnrollments(course, enrollments);
 
@@ -144,7 +159,7 @@ export function CourseDetailModal({
     if (!file) return;
 
     if (file.size > 20_000_000) {
-      showStatusToast("error", "Fotoğraf yüklenemedi. Lütfen tekrar deneyin.");
+      showStatusToast("error", t("courseModal.errors.uploadFailed"));
       return;
     }
 
@@ -167,11 +182,11 @@ export function CourseDetailModal({
       } else {
         const errText = await response.text();
         console.error("Fotoğraf yüklenemedi:", errText);
-        setStatusMessage({ type: "error", text: "Fotoğraf yüklenemedi. Lütfen tekrar deneyin." });
+        setStatusMessage({ type: "error", text: t("courseModal.errors.uploadFailed") });
       }
     } catch (error) {
       console.error(error);
-      showStatusToast("error", "Sunucuya ulaşılamıyor.");
+      showStatusToast("error", t("courseModal.errors.serverError"));
     } finally {
       setIsUploadingImage(false);
       // Aynı dosyayı tekrar seçebilmek için input'u sıfırla
@@ -189,19 +204,19 @@ export function CourseDetailModal({
   const handleSave = async () => {
     const courseId = course.id ?? course.Id;
     if (!courseId) {
-      showStatusToast("error", "Kurs kimliği bulunamadı.");
+      showStatusToast("error", t("courseModal.errors.courseIdMissing"));
       return;
     }
     if (!editTitle.trim()) {
-      showStatusToast("error", "Kurs adı boş olamaz.");
+      showStatusToast("error", t("courseModal.errors.titleEmpty"));
       return;
     }
     if (!editCategory) {
-      showStatusToast("error", "Lütfen bir kategori seçin.");
+      showStatusToast("error", t("courseModal.errors.categoryEmpty"));
       return;
     }
     if (!editTeacherId) {
-      showStatusToast("error", "Lütfen bir eğitmen seçin.");
+      showStatusToast("error", t("courseModal.errors.instructorEmpty"));
       return;
     }
 
@@ -257,15 +272,15 @@ export function CourseDetailModal({
         };
         onSaved(updated);
         setIsEditing(false);
-        showStatusToast("success", "Kurs başarıyla güncellendi.");
+        showStatusToast("success", t("courseModal.errors.updateSuccess"));
       } else {
         const errorData = await response.text();
         console.error("Kurs güncellenirken backend hatası:", errorData);
-        showStatusToast("error", errorData || "Kurs güncellenirken bir hata oluştu.");
+        showStatusToast("error", errorData || t("courseModal.errors.updateFailed"));
       }
     } catch (error) {
       console.error(error);
-      showStatusToast("error", "Sunucuya ulaşılamıyor.");
+      showStatusToast("error", t("courseModal.errors.serverError"));
     } finally {
       setIsSaving(false);
     }
@@ -325,8 +340,8 @@ export function CourseDetailModal({
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background text-xs font-bold">
                 <Users className="size-3.5" />
                 {capacity
-                  ? `${courseEnrollments.length}/${capacity} Öğrenci`
-                  : `${courseEnrollments.length} Öğrenci Kayıtlı`}
+                  ? t("courseModal.capacityFull", { enrolled: courseEnrollments.length, capacity })
+                  : t("courseModal.capacityRegistered", { enrolled: courseEnrollments.length })}
               </div>
             </div>
 
@@ -336,7 +351,7 @@ export function CourseDetailModal({
                 className="flex items-center gap-1.5 text-xs font-bold border border-border rounded-md px-3 py-1.5 hover:bg-foreground/5 transition-colors"
               >
                 <Edit2 className="size-3.5" />
-                Kursu Düzenle
+                {t("courseModal.editCourse")}
               </button>
             )}
           </div>
@@ -344,12 +359,12 @@ export function CourseDetailModal({
           {isEditing ? (
             <div className="space-y-4 border-t border-border pt-6">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Kurs Fotoğrafı</label>
+                <label className="text-sm font-medium">{t("courseModal.photoLabel")}</label>
                 <div className="flex gap-4">
                   <div className="size-20 rounded-md overflow-hidden bg-neutral-100 border border-border shrink-0">
                     <img
                       src={editPreviewSrc}
-                      alt="Önizleme"
+                      alt={t("courseModal.preview")}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -365,7 +380,7 @@ export function CourseDetailModal({
                         }`}
                       >
                         <Upload className="size-3.5" />
-                        Dosya Yükle
+                        {t("courseModal.uploadFile")}
                       </button>
                       <button
                         type="button"
@@ -377,15 +392,15 @@ export function CourseDetailModal({
                         }`}
                       >
                         <Link2 className="size-3.5" />
-                        Link Yapıştır
+                        {t("courseModal.pasteLink")}
                       </button>
                     </div>
 
                     {imageMode === "upload" ? (
                       <label className="flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold border border-dashed border-border rounded-md cursor-pointer hover:bg-foreground/5 transition-colors">
                         {isUploadingImage
-                          ? "Yükleniyor..."
-                          : "Bilgisayardan seç (jpg, png, gif, webp)"}
+                          ? t("courseModal.uploading")
+                          : t("courseModal.chooseFromPc")}
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/gif,image/webp"
@@ -410,7 +425,7 @@ export function CourseDetailModal({
                         onClick={handleRemoveImage}
                         className="text-[11px] font-mono text-muted-foreground hover:text-red-600 transition-colors"
                       >
-                        Fotoğrafı kaldır (stok fotoğrafa dön)
+                        {t("courseModal.removePhoto")}
                       </button>
                     )}
                   </div>
@@ -418,7 +433,7 @@ export function CourseDetailModal({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Kurs Adı</label>
+                <label className="text-sm font-medium">{t("courseModal.courseName")}</label>
                 <input
                   type="text"
                   value={editTitle}
@@ -429,22 +444,20 @@ export function CourseDetailModal({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Kategori</label>
+                  <label className="text-sm font-medium">{t("courseModal.category")}</label>
                   <select
                     value={editCategory}
                     onChange={(e) => handleCategoryChange(e.target.value)}
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   >
                     <option value="" disabled>
-                      Bir kategori seçin
+                      {t("courses.selectCategory")}
                     </option>
-                    {/* Eski kayıtlarda sabit listede olmayan bir kategori varsa, kaybolmasın
-                        diye ayrıca gösteriyoruz; admin dilerse listeden birine geçirebilir. */}
-                    {editCategory &&
-                      !BRANCH_OPTIONS.includes(editCategory as (typeof BRANCH_OPTIONS)[number]) && (
-                        <option value={editCategory}>{editCategory} (eski değer)</option>
-                      )}
-                    {BRANCH_OPTIONS.map((b) => (
+                    {/* Eğer kursun mevcut kategorisi silinmişse ve hala ondaysa, onu da göster */}
+                    {editCategory && !categories.includes(editCategory) && (
+                      <option value={editCategory}>{editCategory}</option>
+                    )}
+                    {categories.map((b) => (
                       <option key={b} value={b}>
                         {b}
                       </option>
@@ -452,7 +465,7 @@ export function CourseDetailModal({
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Eğitmen</label>
+                  <label className="text-sm font-medium">{t("courseModal.instructor")}</label>
                   <select
                     value={editTeacherId}
                     onChange={(e) => setEditTeacherId(e.target.value)}
@@ -461,10 +474,10 @@ export function CourseDetailModal({
                   >
                     <option value="" disabled>
                       {!editCategory
-                        ? "Önce bir kategori seçin"
+                        ? t("courseModal.firstSelectCategory")
                         : teachersInCategory.length === 0
-                          ? "Bu branşta öğretmen yok"
-                          : "Bir eğitmen seçin"}
+                          ? t("courseModal.noTeacherInBranch")
+                          : t("courseModal.selectInstructor")}
                     </option>
                     {teachersInCategory.map((t) => {
                       const id = t.id ?? t.Id;
@@ -476,15 +489,16 @@ export function CourseDetailModal({
                     })}
                   </select>
                   <p className="text-[11px] text-muted-foreground">
-                    Sadece "{editCategory || "seçilen kategori"}" branşındaki öğretmenler
-                    listelenir.
+                    {t("courseModal.onlyTeachersInBranch", {
+                      category: editCategory || t("courseModal.selectCategory"),
+                    })}
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Kapasite</label>
+                  <label className="text-sm font-medium">{t("courseModal.capacity")}</label>
                   <input
                     type="number"
                     min="1"
@@ -494,7 +508,7 @@ export function CourseDetailModal({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Fiyat (₺)</label>
+                  <label className="text-sm font-medium">{t("courseModal.price")}</label>
                   <input
                     type="number"
                     min="0"
@@ -507,12 +521,12 @@ export function CourseDetailModal({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Kurs İçeriği</label>
+                <label className="text-sm font-medium">{t("courseModal.courseContent")}</label>
                 <textarea
                   rows={4}
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  placeholder="Kursta neler işleneceğine dair kısa bir açıklama yazın..."
+                  placeholder={t("courseModal.courseContentPlaceholder")}
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors resize-none"
                 />
               </div>
@@ -524,7 +538,7 @@ export function CourseDetailModal({
                   disabled={isSaving}
                   className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors disabled:opacity-60"
                 >
-                  İptal
+                  {t("courseModal.cancel")}
                 </button>
                 <button
                   type="button"
@@ -532,7 +546,7 @@ export function CourseDetailModal({
                   disabled={isSaving || isUploadingImage}
                   className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity disabled:opacity-60"
                 >
-                  {isSaving ? "Kaydediliyor..." : "Kaydet"}
+                  {isSaving ? t("courseModal.saving") : t("courseModal.save")}
                 </button>
               </div>
             </div>
@@ -541,18 +555,17 @@ export function CourseDetailModal({
               <div>
                 <h3 className="text-sm font-bold text-foreground/80 mb-2 flex items-center gap-2">
                   <BookOpen className="size-4" />
-                  Kurs İçeriği
+                  {t("courseModal.contentTitle")}
                 </h3>
                 <p className="text-sm text-muted-foreground leading-6">
-                  {description ||
-                    `Bu kurs "${category}" kategorisinde yer almaktadır. Eğitmen tarafından henüz detaylı bir kurs içeriği eklenmemiş.`}
+                  {description || t("courseModal.noDescription", { category })}
                 </p>
               </div>
 
               <div>
                 <h3 className="text-sm font-bold text-foreground/80 mb-3 flex items-center gap-2">
                   <User className="size-4" />
-                  Eğitmen Profili
+                  {t("courseModal.instructorProfile")}
                 </h3>
                 <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-4">
                   {instructorProfile?.photoUrl ? (
@@ -569,10 +582,10 @@ export function CourseDetailModal({
                   <div className="min-w-0">
                     <p className="font-bold">{instructor}</p>
                     <p className="text-[11px] text-muted-foreground uppercase tracking-widest mb-1">
-                      Eğitmen
+                      {t("courseModal.instructorRole")}
                     </p>
                     <p className="text-sm text-muted-foreground line-clamp-2">
-                      {instructorProfile?.bio || "Bu eğitmen henüz bir açıklama eklemedi."}
+                      {instructorProfile?.bio || t("courseModal.noInstructorBio")}
                     </p>
                   </div>
                 </div>
@@ -582,7 +595,7 @@ export function CourseDetailModal({
                 <div>
                   <h3 className="text-sm font-bold text-foreground/80 mb-2 flex items-center gap-2">
                     <Users className="size-4" />
-                    Kayıtlı Öğrenciler
+                    {t("courseModal.enrolledStudents")}
                   </h3>
                   <ul className="text-sm text-foreground space-y-1.5">
                     {courseEnrollments.slice(0, 8).map((enr, idx) => (
@@ -593,7 +606,7 @@ export function CourseDetailModal({
                     ))}
                     {courseEnrollments.length > 8 && (
                       <li className="text-xs text-muted-foreground pl-3.5">
-                        +{courseEnrollments.length - 8} öğrenci daha
+                        {t("courseModal.moreStudents", { count: courseEnrollments.length - 8 })}
                       </li>
                     )}
                   </ul>

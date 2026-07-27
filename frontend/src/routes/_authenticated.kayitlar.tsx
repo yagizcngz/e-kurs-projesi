@@ -3,6 +3,7 @@ import { Plus, X, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAdminGuard } from "../hooks/useAdminGuard";
 
 export const Route = createFileRoute("/_authenticated/kayitlar")({
@@ -53,6 +54,7 @@ const pick = <T,>(...vals: (T | undefined | null)[]) =>
 
 function EnrollmentsPage() {
   useAdminGuard();
+  const { t, i18n } = useTranslation();
   const [enrollments, setEnrollments] = useState<EnrollmentDto[]>([]);
   const [students, setStudents] = useState<StudentLite[]>([]);
   const [courses, setCourses] = useState<CourseLite[]>([]);
@@ -170,7 +172,7 @@ function EnrollmentsPage() {
     e.preventDefault();
 
     if (!selectedStudent || !selectedCourse) {
-      showToast("Lütfen öğrenci ve kurs seçin.", "error");
+      showToast(t("enrollments.errors.selectionRequired"), "error");
       return;
     }
 
@@ -186,11 +188,11 @@ function EnrollmentsPage() {
       );
 
       if (res.ok) {
-        showToast("Öğrenci kursa başarıyla kaydedildi!");
+        showToast(t("enrollments.errors.enrollSuccess"));
         handleCloseModal();
         fetchEnrollments();
       } else {
-        let msg = "Kayıt başarısız. Zaten kayıtlı olabilir veya sunucu hatası oluştu.";
+        let msg = t("enrollments.errors.enrollFailed");
 
         try {
           const data = await res.json();
@@ -204,7 +206,7 @@ function EnrollmentsPage() {
       }
     } catch (err) {
       console.error(err);
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      showToast(t("enrollments.errors.serverError"), "error");
     } finally {
       setSubmitting(false);
     }
@@ -226,13 +228,13 @@ function EnrollmentsPage() {
         ),
       );
 
-      showToast(`${selectedEnrollmentIds.length} kayıt başarıyla silindi.`);
+      showToast(t("enrollments.errors.deleteSuccess", { count: selectedEnrollmentIds.length }));
       fetchEnrollments();
       setSelectedEnrollmentIds([]);
       setIsEditMode(false);
     } catch (err) {
       console.error(err);
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      showToast(t("enrollments.errors.serverError"), "error");
     }
   };
 
@@ -261,7 +263,7 @@ function EnrollmentsPage() {
   return (
     <>
       <PageHeader
-        crumb="/ kayıtlar"
+        crumb={t("enrollments.breadcrumb")}
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         action={
@@ -273,7 +275,7 @@ function EnrollmentsPage() {
                 className="inline-flex items-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 animate-in fade-in"
               >
                 <Trash2 className="h-4 w-4" />
-                Seçilenleri Sil ({selectedEnrollmentIds.length})
+                {t("enrollments.deleteSelected", { count: selectedEnrollmentIds.length })}
               </button>
             )}
 
@@ -282,7 +284,7 @@ function EnrollmentsPage() {
               onClick={toggleEditMode}
               className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
             >
-              {isEditMode ? "İptal" : "Kayıtları Düzenle"}
+              {isEditMode ? t("enrollments.cancel") : t("enrollments.editEnrollments")}
             </button>
 
             <button
@@ -291,7 +293,7 @@ function EnrollmentsPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               <Plus className="h-4 w-4" />
-              Yeni Kayıt
+              {t("enrollments.newEnrollment")}
             </button>
           </div>
         }
@@ -303,11 +305,11 @@ function EnrollmentsPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/50 text-muted-foreground">
                 <tr>
-                  <th className="px-6 py-3 font-medium">Kayıt No</th>
-                  <th className="px-6 py-3 font-medium">Öğrenci No</th>
-                  <th className="px-6 py-3 font-medium">Öğrenci</th>
-                  <th className="px-6 py-3 font-medium">Kurs</th>
-                  <th className="px-6 py-3 font-medium">Kayıt Tarihi</th>
+                  <th className="px-6 py-3 font-medium">{t("enrollments.enrollmentNo")}</th>
+                  <th className="px-6 py-3 font-medium">{t("enrollments.studentNo")}</th>
+                  <th className="px-6 py-3 font-medium">{t("enrollments.student")}</th>
+                  <th className="px-6 py-3 font-medium">{t("enrollments.course")}</th>
+                  <th className="px-6 py-3 font-medium">{t("enrollments.enrollmentDate")}</th>
                   {/* SADECE DÜZENLEME MODUNDAYKEN GÖRÜNECEK BAŞLIK */}
                   {isEditMode && (
                     <th className="px-6 py-3 text-right font-medium">
@@ -329,13 +331,13 @@ function EnrollmentsPage() {
                 {isLoading ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                      Kayıtlar yükleniyor...
+                      {t("enrollments.loading")}
                     </td>
                   </tr>
                 ) : filteredEnrollments.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                      Aramaya uygun kayıt bulunamadı.
+                      {t("enrollments.notFound")}
                     </td>
                   </tr>
                 ) : (
@@ -343,7 +345,11 @@ function EnrollmentsPage() {
                     const id = pick(e.id, e.Id);
                     const studentNumber = pick(e.studentNumber, e.StudentNumber) || "-";
                     const studentName = pick(e.studentFullName, e.StudentFullName) || "-";
-                    const courseTitle = pick(e.courseTitle, e.CourseTitle) || "-";
+                    const rawCourseTitle = pick(e.courseTitle, e.CourseTitle) || "-";
+                    const courseTitle =
+                      rawCourseTitle !== "-" && i18n.exists(`dynamic.courses.${rawCourseTitle}`)
+                        ? t(`dynamic.courses.${rawCourseTitle}`)
+                        : rawCourseTitle;
 
                     const rawDate = pick(e.enrollmentDate, e.EnrollmentDate);
                     const dateText = rawDate ? new Date(rawDate).toLocaleDateString("tr-TR") : "-";
@@ -391,10 +397,16 @@ function EnrollmentsPage() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-lg">
+        <div
+          onClick={handleCloseModal}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-lg"
+          >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Yeni Kayıt Oluştur</h2>
+              <h2 className="text-lg font-semibold">{t("enrollments.createEnrollmentTitle")}</h2>
 
               <button
                 type="button"
@@ -407,14 +419,14 @@ function EnrollmentsPage() {
 
             <form onSubmit={handleEnroll} className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium">Öğrenci</label>
+                <label className="mb-1 block text-sm font-medium">{t("enrollments.student")}</label>
 
                 <select
                   value={selectedStudent}
                   onChange={(ev) => setSelectedStudent(ev.target.value)}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  <option value="">Öğrenci seçin...</option>
+                  <option value="">{t("enrollments.selectStudent")}</option>
 
                   {students.map((s) => {
                     const id = pick(s.id, s.Id);
@@ -433,22 +445,25 @@ function EnrollmentsPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Kurs</label>
+                <label className="mb-1 block text-sm font-medium">{t("enrollments.course")}</label>
 
                 <select
                   value={selectedCourse}
                   onChange={(ev) => setSelectedCourse(ev.target.value)}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  <option value="">Kurs seçin...</option>
+                  <option value="">{t("enrollments.selectCourse")}</option>
 
                   {courses.map((c) => {
                     const id = pick(c.id, c.Id);
-                    const title = pick(c.title, c.Title) || "İsimsiz Kurs";
+                    const title = pick(c.title, c.Title) || t("enrollments.unnamedCourse");
 
                     return (
                       <option key={id} value={id}>
-                        {title}
+                        {title !== t("enrollments.unnamedCourse") &&
+                        i18n.exists(`dynamic.courses.${title}`)
+                          ? t(`dynamic.courses.${title}`)
+                          : title}
                       </option>
                     );
                   })}
@@ -461,7 +476,7 @@ function EnrollmentsPage() {
                   onClick={handleCloseModal}
                   className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
                 >
-                  İptal
+                  {t("enrollments.cancel")}
                 </button>
 
                 <button
@@ -469,7 +484,7 @@ function EnrollmentsPage() {
                   disabled={submitting}
                   className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                 >
-                  {submitting ? "Kaydediliyor..." : "Kaydet"}
+                  {submitting ? t("enrollments.saving") : t("enrollments.save")}
                 </button>
               </div>
             </form>
@@ -487,16 +502,17 @@ function EnrollmentsPage() {
               </div>
 
               <div>
-                <h2 className="text-lg font-semibold">Silme Onayı</h2>
+                <h2 className="text-lg font-semibold">{t("enrollments.deleteConfirmTitle")}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Seçili <strong>{selectedEnrollmentIds.length}</strong> kaydı silmek istediğinize
-                  emin misiniz?
+                  {t("enrollments.deleteConfirmText1")}{" "}
+                  <strong>{selectedEnrollmentIds.length}</strong>{" "}
+                  {t("enrollments.deleteConfirmText2")}
                 </p>
               </div>
             </div>
 
             <p className="mb-6 text-sm text-muted-foreground">
-              Bu işlem geri alınamaz. Lütfen onaylayın veya iptal edin.
+              {t("enrollments.deleteConfirmWarning")}
             </p>
 
             <div className="flex justify-end gap-2">
@@ -504,13 +520,13 @@ function EnrollmentsPage() {
                 onClick={confirmDeleteEnrollment}
                 className="px-4 py-2 text-sm font-semibold bg-red-600 text-white hover:bg-red-700 rounded-md transition-colors"
               >
-                Evet
+                {t("enrollments.yes")}
               </button>
               <button
                 onClick={cancelDeleteEnrollment}
                 className="px-4 py-2 text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
               >
-                Hayır
+                {t("enrollments.no")}
               </button>
             </div>
           </div>

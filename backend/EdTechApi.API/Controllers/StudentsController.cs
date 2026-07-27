@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace EdTechApi.API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class StudentsController : ControllerBase
@@ -38,50 +39,8 @@ namespace EdTechApi.API.Controllers
             return Ok(student);
         }
 
-        // Giriş yapan kullanıcının KENDİ öğrenci profilini döner (ad-soyad eşleştirmesiyle).
-        // /profil sayfasındaki "Kendim Hakkında" ve "Profil Fotoğrafı" bilgilerini buradan çekiyoruz.
-        [Authorize]
-        [HttpGet("me")]
-        public async Task<IActionResult> GetMyProfile()
-        {
-            var username = GetCurrentUsername();
-            if (string.IsNullOrEmpty(username))
-            {
-                return Unauthorized();
-            }
 
-            var student = await _studentService.GetStudentByUsernameAsync(username);
-            if (student == null)
-            {
-                // Örn. superadmin gibi bir Student kaydına karşılık gelmeyen hesaplar için
-                return NotFound("Bu hesaba karşılık gelen bir öğrenci kaydı bulunamadı.");
-            }
-
-            return Ok(student);
-        }
-
-        // Giriş yapan kullanıcının kendi "Kendim Hakkında" ve profil fotoğrafını günceller.
-        [Authorize]
-        [HttpPut("me")]
-        public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateProfileRequest request)
-        {
-            var username = GetCurrentUsername();
-            if (string.IsNullOrEmpty(username))
-            {
-                return Unauthorized();
-            }
-
-            var success = await _studentService.UpdateStudentProfileAsync(
-                username, request.AboutMe, request.ProfilePictureUrl);
-
-            if (!success)
-            {
-                return NotFound("Bu hesaba karşılık gelen bir öğrenci kaydı bulunamadı.");
-            }
-
-            return Ok(new { message = "Profil güncellendi." });
-        }
-
+        [Authorize(Roles = "Admin,superadmin")]
         [HttpPost]
         public async Task<IActionResult> CreateStudent([FromBody] Student newStudent)
         {
@@ -109,6 +68,7 @@ namespace EdTechApi.API.Controllers
             return NoContent();
         }
 
+        [Authorize(Roles = "Admin,superadmin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteStudent(int id)
         {
@@ -117,12 +77,14 @@ namespace EdTechApi.API.Controllers
         }
 
         // Silinmiş (soft-deleted) öğrenciler — Raporlar sayfasındaki "Silinen Öğrenciler" kartı için
+        [Authorize(Roles = "Admin,superadmin")]
         [HttpGet("deleted")]
         public async Task<IActionResult> GetDeletedStudents()
         {
             var deleted = await _studentService.GetDeletedStudentsAsync();
             return Ok(deleted);
         }
+        [Authorize(Roles = "Admin,superadmin")]
         [HttpPost("bulk-delete")]
         public async Task<IActionResult> DeleteMultipleStudents([FromBody] List<int> ids)
         {
@@ -146,11 +108,4 @@ namespace EdTechApi.API.Controllers
                 ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
                 ?? User.Identity?.Name;
         }
-    }
-
-    public class UpdateProfileRequest
-    {
-        public string? AboutMe { get; set; }
-        public string? ProfilePictureUrl { get; set; }
-    }
-}
+}}

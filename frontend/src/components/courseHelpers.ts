@@ -1,20 +1,30 @@
 export const API_BASE = "http://localhost:5157";
 
-// --- YENİ EKLENEN SABİT LİSTE ---
-// Kurs "Kategori" alanı ile öğretmen "Branş" alanı artık aynı sabit listeden seçiliyor.
-// Bir öğretmen sadece kendi branşıyla aynı kategorideki kurslara eğitmen olarak
-// atanabilsin diye iki alan da serbest metin yerine bu ortak listeyi kullanıyor.
-// NOT: Bu liste backend'deki BranchOptions.cs ile birebir aynı tutulmalı.
-export const BRANCH_OPTIONS = [
-  "Fen Bilimleri",
-  "Sosyal Bilimler",
-  "Yazılım",
-  "Yabancı Dil",
-  "Tasarım",
-  "Genel",
-] as const;
+// --- DİNAMİK KATEGORİ SİSTEMİ ---
+// Artık kategoriler backend'den dinamik olarak çekiliyor.
+export interface CategoryDto {
+  id: number;
+  Id?: number;
+  name: string;
+  Name?: string;
+  description?: string;
+  Description?: string;
+}
 
-export type BranchOption = (typeof BRANCH_OPTIONS)[number];
+export const fetchCategories = async (token?: string): Promise<string[]> => {
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE}/api/categories`, { headers });
+    if (!res.ok) return [];
+    const data: CategoryDto[] = await res.json();
+    return data.map((c) => c.name || c.Name || "");
+  } catch (error) {
+    console.error("Kategoriler çekilirken hata:", error);
+    return [];
+  }
+};
 
 export interface CourseData {
   id?: string | number;

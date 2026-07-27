@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
   Users,
@@ -50,16 +51,17 @@ interface ProfileMeDto {
 }
 
 // Tüm menü listesi (Henüz filtrelenmemiş hali)
-const menuItems = [
-  { title: "Ana Sayfa", url: "/", icon: LayoutDashboard },
-  { title: "Öğrenciler", url: "/ogrenciler", icon: Users },
-  { title: "Öğretmenler", url: "/ogretmenler", icon: UserCog },
-  { title: "Kurslar", url: "/kurslar", icon: BookOpen },
-  { title: "Kayıtlar", url: "/kayitlar", icon: ClipboardList },
-  { title: "Raporlar", url: "/raporlar", icon: BarChart3 },
+const getMenuItems = (t: any) => [
+  { title: t("sidebar.home"), url: "/", icon: LayoutDashboard },
+  { title: t("sidebar.students"), url: "/ogrenciler", icon: Users },
+  { title: t("sidebar.teachers"), url: "/ogretmenler", icon: UserCog },
+  { title: t("sidebar.courses"), url: "/kurslar", icon: BookOpen },
+  { title: t("sidebar.enrollments"), url: "/kayitlar", icon: ClipboardList },
+  { title: t("sidebar.reports"), url: "/raporlar", icon: BarChart3 },
 ];
 
 export function AppSidebar() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -116,8 +118,9 @@ export function AppSidebar() {
             const data: ProfileMeDto = await res.json();
             const photo = data.profilePictureUrl || data.ProfilePictureUrl;
 
-            if (data.firstName && data.lastName) {
-              currentName = `${data.firstName} ${data.lastName}`;
+            const fullName = [data.firstName, data.lastName].filter(Boolean).join(" ");
+            if (fullName) {
+              currentName = fullName;
             }
 
             const initials = currentName
@@ -194,13 +197,13 @@ export function AppSidebar() {
   };
 
   const menuLinks = [
-    { label: "Profil", icon: User, to: "/profil" },
-    { label: "Ayarlar", icon: Settings, to: "/ayarlar" },
-    { label: "Yardım", icon: HelpCircle, to: "/yardim" },
+    { label: t("sidebar.profile"), icon: User, to: "/profil" },
+    { label: t("sidebar.settings"), icon: Settings, to: "/ayarlar" },
+    { label: t("sidebar.help"), icon: HelpCircle, to: "/yardim" },
   ];
 
   // YENİ EKLENEN KISIM: Rol tabanlı menü filtreleme
-  const visibleMenuItems = menuItems.filter((item) => {
+  const visibleMenuItems = getMenuItems(t).filter((item) => {
     if (currentUser.role === "Admin") return true; // Admin her yeri görür
     return item.url === "/" || item.url === "/kurslar"; // Diğerleri sadece bu ikisini görür
   });
@@ -283,7 +286,7 @@ export function AppSidebar() {
               className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-sidebar-foreground transition-all hover:bg-neutral-900/5 hover:text-neutral-900 dark:hover:bg-white/5 dark:hover:text-white"
             >
               {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-              Tema ({isDark ? "Karanlık" : "Aydınlık"})
+              {isDark ? t("sidebar.themeDark") : t("sidebar.themeLight")}
             </button>
             <div className="my-1 h-px bg-border" />
             <button
@@ -291,7 +294,7 @@ export function AppSidebar() {
               className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-destructive transition-all hover:bg-neutral-900/5 dark:hover:bg-white/5"
             >
               <LogOut className="h-4 w-4" />
-              Çıkış Yap
+              {t("sidebar.logout")}
             </button>
           </PopoverContent>
         </Popover>

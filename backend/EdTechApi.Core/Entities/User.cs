@@ -9,9 +9,14 @@ namespace EdTechApi.Core.Entities
         // YENİ EKLENEN ALANLAR
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty; // EKLENDİ
 
         public string Role { get; set; } = "User";
         public string? AboutMe { get; set; }
         public string? ProfilePictureUrl { get; set; }
+        
+        // Yeni eklenen ayar alanları
+        public bool IsProfilePublic { get; set; } = true;
+        public bool ReceiveEmailNotifications { get; set; } = true;
     }
 }

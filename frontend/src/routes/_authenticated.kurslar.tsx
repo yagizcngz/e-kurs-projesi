@@ -2,12 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "../components/PageHeader";
 import { Plus, X, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { CourseDetailModal } from "../components/CourseDetailModal";
 import {
   getCourseImage,
   getTeacherFullName,
   getTeachersInBranch,
-  BRANCH_OPTIONS,
+  fetchCategories,
   type CourseData,
   type EnrollmentDto,
   type TeacherLiteDto,
@@ -36,11 +37,15 @@ const parseJwt = (token: string) => {
 };
 
 function CoursesPage() {
+  const { t, i18n } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [dbCourses, setDbCourses] = useState<CourseData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [currentUser, setCurrentUser] = useState({ name: "Bilinmiyor", role: "Öğrenci" });
+  const [currentUser, setCurrentUser] = useState({
+    name: t("courses.unknown"),
+    role: t("courses.student"),
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -58,6 +63,7 @@ function CoursesPage() {
   // Kurs düzenleme formundaki öğretmen seçim dropdown'ı ve "Eğitmen Profili" (foto+bio)
   // eşleştirmesi için /api/teachers'tan çekilen liste.
   const [dbTeachers, setDbTeachers] = useState<TeacherLiteDto[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
   // ÇOKLU SEÇİM VE DÜZENLEME MODU STATE'LERİ
   const [isEditMode, setIsEditMode] = useState(false);
@@ -105,16 +111,16 @@ function CoursesPage() {
           payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ||
           payload.name ||
           payload.unique_name ||
-          "Bilinmeyen Eğitmen";
+          t("courses.unknownInstructor");
         const role =
           payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
           payload.role ||
-          "Öğrenci";
+          t("courses.student");
 
         setCurrentUser({ name, role });
       }
     }
-  }, []);
+  }, [t]);
 
   // Kurs detay modalında kayıtlı öğrenci sayısını göstermek ve öğretmen seçim
   // dropdown'ını / eğitmen profilini doldurmak için gerekli listeler.
@@ -140,8 +146,14 @@ function CoursesPage() {
       }
     };
 
+    const fetchCats = async () => {
+      const cats = await fetchCategories(token || undefined);
+      setCategories(cats);
+    };
+
     fetchEnrollments();
     fetchTeachers();
+    fetchCats();
   }, []);
 
   const handleCloseDetailModal = () => {
@@ -186,11 +198,11 @@ function CoursesPage() {
     e.preventDefault();
 
     if (!newCategory) {
-      showToast("Lütfen bir kategori seçin.", "error");
+      showToast(t("courses.errors.categoryRequired"), "error");
       return;
     }
     if (!newTeacherId) {
-      showToast("Lütfen bir eğitmen seçin.", "error");
+      showToast(t("courses.errors.instructorRequired"), "error");
       return;
     }
 
@@ -217,16 +229,16 @@ function CoursesPage() {
       });
 
       if (response.ok) {
-        showToast("Kurs başarıyla oluşturuldu!");
+        showToast(t("courses.errors.createSuccess"));
         handleCloseModal();
         fetchCourses();
       } else {
         const errorData = await response.text();
         console.error("Backend'den dönen hata:", errorData);
-        showToast(errorData || "Kayıt başarısız! Formu kontrol edin.", "error");
+        showToast(errorData || t("courses.errors.createFailed"), "error");
       }
     } catch (error) {
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      showToast(t("courses.errors.serverError"), "error");
     }
   };
 
@@ -276,14 +288,14 @@ function CoursesPage() {
         ),
       );
 
-      showToast(`${selectedCourseIds.length} kurs başarıyla silindi!`);
+      showToast(t("courses.errors.deleteSuccess", { count: selectedCourseIds.length }));
       setIsConfirmOpen(false);
       setSelectedCourseIds([]);
       setIsEditMode(false);
       fetchCourses();
     } catch (error) {
       console.error("Silme hatası:", error);
-      showToast("Kurslar silinirken bir hata oluştu.", "error");
+      showToast(t("courses.errors.deleteFailed"), "error");
     } finally {
       setIsDeleting(false);
     }
@@ -309,7 +321,7 @@ function CoursesPage() {
   return (
     <>
       <PageHeader
-        crumb="/ kurslar "
+        crumb={t("courses.breadcrumb")}
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         action={
@@ -322,7 +334,7 @@ function CoursesPage() {
                   className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-red-600 transition-colors animate-in fade-in"
                 >
                   <Trash2 className="size-4" />
-                  Seçilenleri Sil ({selectedCourseIds.length})
+                  {t("courses.deleteSelected", { count: selectedCourseIds.length })}
                 </button>
               )}
 
@@ -333,8 +345,8 @@ function CoursesPage() {
                   className="flex items-center gap-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md text-xs font-bold transition-colors"
                 >
                   {selectedCourseIds.length === filteredCourses.length && filteredCourses.length > 0
-                    ? "Seçimi Temizle"
-                    : "Tümünü Seç"}
+                    ? t("courses.clearSelection")
+                    : t("courses.selectAll")}
                 </button>
               )}
 
@@ -343,7 +355,7 @@ function CoursesPage() {
                 onClick={toggleEditMode}
                 className="flex items-center gap-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md text-xs font-bold transition-colors"
               >
-                {isEditMode ? "İptal" : "Kursları Düzenle"}
+                {isEditMode ? t("courses.cancel") : t("courses.editCourses")}
               </button>
 
               <button
@@ -351,7 +363,7 @@ function CoursesPage() {
                 className="flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
               >
                 <Plus className="size-4" />
-                Yeni Kurs
+                {t("courses.newCourse")}
               </button>
             </div>
           )
@@ -362,19 +374,19 @@ function CoursesPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {isLoading ? (
             <div className="col-span-full py-12 text-center text-muted-foreground animate-pulse font-mono text-xs uppercase tracking-widest">
-              Kurslar Yükleniyor...
+              {t("courses.loading")}
             </div>
           ) : filteredCourses.length === 0 ? (
             <div className="col-span-full py-12 text-center text-muted-foreground text-xs">
-              Kayıtlı kurs bulunamadı.
+              {t("courses.notFound")}
             </div>
           ) : (
             filteredCourses.map((c, index) => {
               const currentId = c.id ?? c.Id;
-              const title = c.title || c.Title || "İsimsiz Kurs";
-              const category = c.category || c.Category || "Genel";
+              const title = c.title || c.Title || t("courses.unnamedCourse");
+              const category = c.category || c.Category || t("courses.general");
               const price = c.price || c.Price || "0";
-              const instructor = c.instructor || c.Instructor || "Bilinmiyor";
+              const instructor = c.instructor || c.Instructor || t("courses.unknown");
               const isSelected = selectedCourseIds.includes(currentId as string | number);
 
               const imageUrl = getCourseImage(c, index);
@@ -383,7 +395,7 @@ function CoursesPage() {
                 <div
                   key={currentId || index}
                   onClick={() => setSelectedCourse(c)}
-                  title="Kurs detaylarını görüntüle"
+                  title={t("courses.viewDetails")}
                   // Seçim yapıldıysa karta ekstra çerçeve ve arka plan rengi ekliyoruz
                   className={`group bg-card border transition-colors rounded-md overflow-hidden shadow-sm flex flex-col cursor-pointer ${
                     isSelected
@@ -404,13 +416,19 @@ function CoursesPage() {
                   <div className="p-5 flex-1 flex flex-col">
                     <div className="flex justify-between items-start mb-3">
                       <span className="text-[10px] font-mono text-accent uppercase">
-                        {category}
+                        {i18n.exists(`dynamic.categories.${category}`)
+                          ? t(`dynamic.categories.${category}`)
+                          : category}
                       </span>
                       <span className="text-sm font-bold">₺{price}</span>
                     </div>
-                    <h4 className="font-bold mb-4 line-clamp-2 flex-1">{title}</h4>
+                    <h4 className="font-bold mb-4 line-clamp-2 flex-1">
+                      {i18n.exists(`dynamic.courses.${title}`)
+                        ? t(`dynamic.courses.${title}`)
+                        : title}
+                    </h4>
                     <div className="flex justify-between items-center text-xs text-muted-foreground mt-auto">
-                      <span>Eğitmen: {instructor}</span>
+                      <span>{t("courses.instructorPrefix", { name: instructor })}</span>
                     </div>
 
                     {/* SADECE DÜZENLEME MODUNDAYKEN GÖRÜNECEK ONAY KUTUSU (Sil Butonu Yerine) */}
@@ -425,7 +443,7 @@ function CoursesPage() {
                           checked={isSelected}
                           onChange={() => handleSelectCourse(currentId)}
                         />
-                        {isSelected ? "Seçildi" : "Seç"}
+                        {isSelected ? t("courses.selected") : t("courses.select")}
                       </label>
                     )}
                   </div>
@@ -443,6 +461,7 @@ function CoursesPage() {
           canManage={canManage}
           enrollments={dbEnrollments}
           teachers={dbTeachers}
+          categories={categories}
           onSaved={handleCourseSaved}
         />
       )}
@@ -463,24 +482,25 @@ function CoursesPage() {
               <X className="size-5" />
             </button>
 
-            <h2 className="text-xl font-bold mb-6 tracking-tight">Yeni Kurs Oluştur</h2>
+            <h2 className="text-xl font-bold mb-6 tracking-tight">
+              {t("courses.createCourseTitle")}
+            </h2>
 
             <form onSubmit={handleAddCourse} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Kurs Adı</label>
+                <label className="text-sm font-medium">{t("courses.courseName")}</label>
                 <input
                   type="text"
                   required
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Örn: Felsefe Tarihi 101"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Kategori</label>
+                  <label className="text-sm font-medium">{t("courses.category")}</label>
                   <select
                     required
                     value={newCategory}
@@ -495,17 +515,17 @@ function CoursesPage() {
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   >
                     <option value="" disabled>
-                      Bir kategori seçin
+                      {t("courses.selectCategory")}
                     </option>
-                    {BRANCH_OPTIONS.map((b) => (
+                    {categories.map((b) => (
                       <option key={b} value={b}>
-                        {b}
+                        {i18n.exists(`dynamic.categories.${b}`) ? t(`dynamic.categories.${b}`) : b}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Eğitmen</label>
+                  <label className="text-sm font-medium">{t("courses.instructor")}</label>
                   <select
                     required
                     value={newTeacherId}
@@ -514,7 +534,9 @@ function CoursesPage() {
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors disabled:opacity-60"
                   >
                     <option value="" disabled>
-                      {!newCategory ? "Önce bir kategori seçin" : "Bir eğitmen seçin"}
+                      {!newCategory
+                        ? t("courses.selectCategoryFirst")
+                        : t("courses.selectInstructor")}
                     </option>
                     {getTeachersInBranch(dbTeachers, newCategory).map((t) => {
                       const id = t.id ?? t.Id;
@@ -530,7 +552,7 @@ function CoursesPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Kapasite</label>
+                  <label className="text-sm font-medium">{t("courses.capacity")}</label>
                   <input
                     type="number"
                     min="1"
@@ -538,12 +560,11 @@ function CoursesPage() {
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                     value={newCapacity}
                     onChange={(e) => setNewCapacity(e.target.value)}
-                    placeholder="Örn: 50"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Fiyat (₺)</label>
+                  <label className="text-sm font-medium">{t("courses.price")}</label>
                   <input
                     type="number"
                     min="0"
@@ -552,19 +573,17 @@ function CoursesPage() {
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                     value={newPrice}
                     onChange={(e) => setNewPrice(e.target.value)}
-                    placeholder="Örn: 399.99"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Kurs İçeriği (opsiyonel)</label>
+                <label className="text-sm font-medium">{t("courses.description")}</label>
                 <textarea
                   rows={3}
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors resize-none"
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Kursta neler işleneceğine dair kısa bir açıklama yazın..."
                 />
               </div>
 
@@ -574,13 +593,13 @@ function CoursesPage() {
                   onClick={handleCloseModal}
                   className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors"
                 >
-                  İptal
+                  {t("courses.cancel")}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity"
                 >
-                  Kaydet
+                  {t("courses.save")}
                 </button>
               </div>
             </form>
@@ -603,13 +622,15 @@ function CoursesPage() {
                 <Trash2 className="size-5 text-red-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-lg tracking-tight">Silme Onayı</h3>
+                <h3 className="font-bold text-lg tracking-tight">
+                  {t("courses.deleteConfirmTitle")}
+                </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Seçili <strong>{selectedCourseIds.length}</strong> kursu silmek istediğinize emin
-                  misiniz?
+                  {t("courses.deleteConfirmText1")} <strong>{selectedCourseIds.length}</strong>{" "}
+                  {t("courses.deleteConfirmText2")}
                 </p>
                 <p className="text-sm text-muted-foreground mt-3">
-                  Bu işlem geri alınamaz. Lütfen onaylayın veya iptal edin.
+                  {t("courses.deleteConfirmWarning")}
                 </p>
               </div>
             </div>
@@ -619,14 +640,14 @@ function CoursesPage() {
                 disabled={isDeleting}
                 className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-60"
               >
-                {isDeleting ? "Siliniyor..." : "Evet"}
+                {isDeleting ? t("courses.deleting") : t("courses.yes")}
               </button>
               <button
                 onClick={() => setIsConfirmOpen(false)}
                 disabled={isDeleting}
                 className="px-4 py-2 text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
               >
-                Hayır
+                {t("courses.no")}
               </button>
             </div>
           </div>

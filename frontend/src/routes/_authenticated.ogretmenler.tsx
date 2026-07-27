@@ -1,9 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "../components/PageHeader";
-import { Plus, X, CheckCircle2, AlertCircle, Edit2, Trash2, Upload, Link2 } from "lucide-react";
+import {
+  Plus,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Edit2,
+  Trash2,
+  Upload,
+  Link2,
+  Search,
+} from "lucide-react";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { translateBackendError } from "../lib/errorTranslator";
 import { useAdminGuard } from "../hooks/useAdminGuard";
-import { BRANCH_OPTIONS } from "../components/courseHelpers";
+import { fetchCategories } from "../components/courseHelpers";
 
 export const Route = createFileRoute("/_authenticated/ogretmenler")({
   component: TeachersPage,
@@ -41,9 +53,11 @@ interface CourseData {
 
 function TeachersPage() {
   useAdminGuard();
+  const { t, i18n } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [dbTeachers, setDbTeachers] = useState<TeacherData[]>([]);
   const [dbCourses, setDbCourses] = useState<CourseData[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -123,7 +137,14 @@ function TeachersPage() {
       }
     };
 
+    const fetchCats = async () => {
+      const token = localStorage.getItem("jwt_token");
+      const cats = await fetchCategories(token || undefined);
+      setCategories(cats);
+    };
+
     fetchCourses();
+    fetchCats();
   }, []);
 
   const currentTeacherId = selectedProfileTeacher?.id ?? selectedProfileTeacher?.Id;
@@ -174,7 +195,7 @@ function TeachersPage() {
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Toplu silme hatası:", errorText);
-        showToast("Öğretmenler silinirken bir hata oluştu.", "error");
+        showToast(t("teachers.errors.deleteFailed"), "error");
         return;
       }
 
@@ -182,13 +203,13 @@ function TeachersPage() {
         prevTeachers.filter((t) => !selectedTeacherIds.includes(t.id || (t.Id as string | number))),
       );
 
-      showToast(`${selectedTeacherIds.length} öğretmen başarıyla silindi!`);
+      showToast(t("teachers.errors.deleteSuccess", { count: selectedTeacherIds.length }));
       setIsDeleteModalOpen(false);
       setSelectedTeacherIds([]);
       setIsEditMode(false);
     } catch (error) {
       console.error("Silme hatası:", error);
-      showToast("Öğretmenler silinirken bir hata oluştu.", "error");
+      showToast(t("teachers.errors.deleteFailed"), "error");
     }
   };
 
@@ -200,7 +221,7 @@ function TeachersPage() {
     e.preventDefault();
 
     if (!newFirstName.trim() || !newLastName.trim()) {
-      showToast("Ad ve soyad boş olamaz.", "error");
+      showToast(t("teachers.errors.nameRequired"), "error");
       return;
     }
 
@@ -212,23 +233,28 @@ function TeachersPage() {
     try {
       // Register endpoint kullanıcıyı + öğretmen profilini otomatik oluşturur
       // (RegistrationCode="12345" = "Teacher" rolü = otomatik Teacher kaydı)
+      const token = localStorage.getItem("jwt_token");
       const res = await fetch("http://localhost:5157/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           firstName,
           lastName,
           username: newUsername.trim(),
           email,
           password: newPassword,
-          registrationCode: "12345",
+          registrationCode: "ADMIN_BYPASS_TEACHER",
         }),
       });
 
       if (!res.ok) {
         const errText = await res.text();
         console.error("Register hatası:", errText);
-        showToast(errText || "Kayıt başarısız!", "error");
+        const translatedError = translateBackendError(errText, t);
+        showToast(translatedError || t("teachers.errors.registerFailed"), "error");
         return;
       }
 
@@ -267,7 +293,7 @@ function TeachersPage() {
         }
       }
 
-      showToast("Öğretmen başarıyla sisteme kaydedildi!");
+      showToast(t("teachers.errors.registerSuccess"));
       setNewFirstName("");
       setNewLastName("");
       setNewEmail("");
@@ -278,17 +304,17 @@ function TeachersPage() {
       fetchTeachers();
     } catch (error) {
       console.error(error);
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      showToast(t("teachers.errors.serverError"), "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const searchLower = searchTerm.toLowerCase();
-  const filteredTeachers = dbTeachers.filter((t) => {
-    const fName = `${t.firstName || t.FirstName || ""} ${t.lastName || t.LastName || ""}`;
-    const fEmail = t.email || t.Email || "";
-    const fBranch = t.branch || t.Branch || "";
+  const filteredTeachers = dbTeachers.filter((teacher) => {
+    const fName = `${teacher.firstName || teacher.FirstName || ""} ${teacher.lastName || teacher.LastName || ""}`;
+    const fEmail = teacher.email || teacher.Email || "";
+    const fBranch = teacher.branch || teacher.Branch || "";
     return (
       fName.toLowerCase().includes(searchLower) ||
       fEmail.toLowerCase().includes(searchLower) ||
@@ -298,10 +324,11 @@ function TeachersPage() {
 
   // Öğretmenin güncel olarak bir kursta eğitmen olarak görünüp görünmediğine göre
   // aktif/pasif durumunu hesaplar (kurs listesindeki "instructor" alanına göre eşleştirme)
-  const getTeacherStatus = (t: TeacherData) => {
-    const fullName = `${t.firstName || t.FirstName || ""} ${t.lastName || t.LastName || ""}`
-      .trim()
-      .toLowerCase();
+  const getTeacherStatus = (teacher: TeacherData) => {
+    const fullName =
+      `${teacher.firstName || teacher.FirstName || ""} ${teacher.lastName || teacher.LastName || ""}`
+        .trim()
+        .toLowerCase();
     if (!fullName) return "PASİF";
 
     const isTeaching = dbCourses.some((c) => {
@@ -309,7 +336,7 @@ function TeachersPage() {
       return instructor && instructor.includes(fullName);
     });
 
-    return isTeaching ? "AKTİF" : "PASİF";
+    return isTeaching ? t("teachers.active") : t("teachers.inactive");
   };
 
   const handleStartEditProfile = () => {
@@ -348,11 +375,11 @@ function TeachersPage() {
         const data = await response.json();
         setEditProfilePictureUrl(`http://localhost:5157${data.url}`);
       } else {
-        showToast("Fotoğraf yüklenemedi. Lütfen tekrar deneyin.", "error");
+        showToast(t("teachers.errors.photoUploadFailed"), "error");
       }
     } catch (error) {
       console.error(error);
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      showToast(t("teachers.errors.serverError"), "error");
     } finally {
       setIsUploadingProfileImage(false);
       e.target.value = "";
@@ -365,15 +392,15 @@ function TeachersPage() {
     if (!selectedProfileTeacher) return;
     const teacherId = selectedProfileTeacher.id ?? selectedProfileTeacher.Id;
     if (!teacherId) {
-      showToast("Öğretmen kimliği bulunamadı.", "error");
+      showToast(t("teachers.errors.idNotFound"), "error");
       return;
     }
     if (!editFirstName.trim() || !editLastName.trim()) {
-      showToast("Ad ve soyad boş olamaz.", "error");
+      showToast(t("teachers.errors.nameRequired"), "error");
       return;
     }
     if (!editBranch) {
-      showToast("Lütfen bir branş seçin.", "error");
+      showToast(t("teachers.errors.branchRequired"), "error");
       return;
     }
 
@@ -417,18 +444,21 @@ function TeachersPage() {
         };
         setSelectedProfileTeacher(updatedTeacher);
         setDbTeachers((prev) =>
-          prev.map((t) => ((t.id ?? t.Id) === teacherId ? updatedTeacher : t)),
+          prev.map((teacher) =>
+            (teacher.id ?? teacher.Id) === teacherId ? updatedTeacher : teacher,
+          ),
         );
         setIsEditingProfile(false);
-        showToast("Öğretmen başarıyla güncellendi.");
+        showToast(t("teachers.errors.updateSuccess"));
       } else {
         const errorText = await response.text();
         console.error("Öğretmen güncellenirken hata:", errorText);
-        showToast(errorText || "Öğretmen güncellenirken bir hata oluştu.", "error");
+        const translatedError = translateBackendError(errorText, t);
+        showToast(translatedError || t("teachers.errors.updateFailed"), "error");
       }
     } catch (error) {
       console.error(error);
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      showToast(t("teachers.errors.serverError"), "error");
     } finally {
       setIsSavingProfile(false);
     }
@@ -437,7 +467,7 @@ function TeachersPage() {
   return (
     <>
       <PageHeader
-        crumb="/ ogretmenler "
+        crumb={t("teachers.breadcrumb")}
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         action={
@@ -448,7 +478,7 @@ function TeachersPage() {
                 className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-red-600 transition-colors animate-in fade-in"
               >
                 <Trash2 className="size-4" />
-                Seçilenleri Sil ({selectedTeacherIds.length})
+                {t("teachers.deleteSelected", { count: selectedTeacherIds.length })}
               </button>
             )}
 
@@ -456,7 +486,7 @@ function TeachersPage() {
               onClick={toggleEditMode}
               className="flex items-center gap-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md text-xs font-bold transition-colors"
             >
-              {isEditMode ? "İptal" : "Öğretmenleri Düzenle"}
+              {isEditMode ? t("teachers.cancel") : t("teachers.editTeachers")}
             </button>
 
             <button
@@ -464,7 +494,7 @@ function TeachersPage() {
               className="flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
             >
               <Plus className="size-4" />
-              Yeni Öğretmen
+              {t("teachers.newTeacher")}
             </button>
           </div>
         }
@@ -472,7 +502,9 @@ function TeachersPage() {
 
       <div className="p-8 animate-reveal">
         <div className="flex items-end justify-between border-b border-foreground/10 pb-2 mb-4">
-          <h2 className="text-sm font-bold uppercase tracking-widest">Tüm Öğretmenler</h2>
+          <h2 className="text-sm font-bold uppercase tracking-widest">
+            {t("teachers.allTeachers")}
+          </h2>
         </div>
 
         <div className="bg-card border border-border overflow-x-auto rounded-md shadow-sm">
@@ -480,19 +512,19 @@ function TeachersPage() {
             <thead>
               <tr className="bg-foreground/2 border-b border-border">
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
-                  Öğretmen
+                  {t("teachers.teacher")}
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
-                  E-Posta
+                  {t("teachers.email")}
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
-                  Branş
+                  {t("teachers.branch")}
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
-                  Kayıt Tarihi
+                  {t("teachers.registrationDate")}
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
-                  Durum
+                  {t("teachers.status")}
                 </th>
                 {isEditMode && (
                   <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
@@ -516,27 +548,32 @@ function TeachersPage() {
                     colSpan={6}
                     className="px-6 py-12 text-center text-muted-foreground animate-pulse font-mono text-xs uppercase tracking-widest"
                   >
-                    Öğretmenler Yükleniyor...
+                    {t("teachers.loading")}
                   </td>
                 </tr>
               ) : filteredTeachers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground text-xs">
-                    Kayıtlı öğretmen bulunamadı.
+                    {t("teachers.notFound")}
                   </td>
                 </tr>
               ) : (
-                filteredTeachers.map((t, index) => {
+                filteredTeachers.map((teacher, index) => {
                   const fullName =
-                    `${t.firstName || t.FirstName || ""} ${t.lastName || t.LastName || ""}`.trim() ||
-                    "İsimsiz Öğretmen";
-                  const email = t.email || t.Email || "-";
-                  const branch = t.branch || t.Branch || "-";
+                    `${teacher.firstName || teacher.FirstName || ""} ${teacher.lastName || teacher.LastName || ""}`.trim() ||
+                    t("teachers.unnamedTeacher");
+                  const email = teacher.email || teacher.Email || "-";
+                  const rawBranch = teacher.branch || teacher.Branch;
+                  const branch = rawBranch
+                    ? i18n.exists(`dynamic.categories.${rawBranch}`)
+                      ? t(`dynamic.categories.${rawBranch}`)
+                      : rawBranch
+                    : "-";
                   const initials = fullName.slice(0, 2).toUpperCase();
-                  const dateRaw = t.date || t.Date;
+                  const dateRaw = teacher.date || teacher.Date;
                   const date = dateRaw ? new Date(dateRaw).toLocaleDateString("tr-TR") : "-";
-                  const currentId = t.id || t.Id;
-                  const calculatedStatus = getTeacherStatus(t);
+                  const currentId = teacher.id || teacher.Id;
+                  const calculatedStatus = getTeacherStatus(teacher);
 
                   return (
                     <tr
@@ -551,8 +588,8 @@ function TeachersPage() {
                         {/* TIKLANABİLİR PROFİL ALANI */}
                         <div
                           className="flex items-center gap-3 cursor-pointer group w-fit"
-                          onClick={() => setSelectedProfileTeacher(t)}
-                          title="Profili Görüntüle"
+                          onClick={() => setSelectedProfileTeacher(teacher)}
+                          title={t("teachers.viewProfile")}
                         >
                           <div className="size-10 rounded bg-muted grid place-items-center text-[10px] font-mono text-muted-foreground shrink-0 uppercase group-hover:bg-foreground group-hover:text-background transition-colors duration-300">
                             {initials}
@@ -560,7 +597,7 @@ function TeachersPage() {
                           <div>
                             <div className="font-semibold group-hover:underline">{fullName}</div>
                             <div className="text-xs text-muted-foreground font-mono">
-                              {t.teacherNumber || t.TeacherNumber || currentId || "-"}
+                              {teacher.teacherNumber || teacher.TeacherNumber || currentId || "-"}
                             </div>
                           </div>
                         </div>
@@ -573,7 +610,7 @@ function TeachersPage() {
                       <td className="px-6 py-4 text-right">
                         <span
                           className={`px-2 py-1 text-[10px] font-bold rounded-sm ${
-                            calculatedStatus === "AKTİF"
+                            calculatedStatus === t("teachers.active")
                               ? "bg-emerald-500/10 text-emerald-600"
                               : "bg-stone-500/10 text-stone-500"
                           }`}
@@ -600,7 +637,7 @@ function TeachersPage() {
         </div>
 
         <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground font-mono">
-          <div>Toplam {filteredTeachers.length} öğretmen</div>
+          <div>{t("teachers.totalTeachers", { count: filteredTeachers.length })}</div>
         </div>
       </div>
 
@@ -627,13 +664,13 @@ function TeachersPage() {
                 className="absolute top-4 right-14 flex items-center gap-1.5 text-xs font-bold border border-border rounded-md px-3 py-1.5 hover:bg-foreground/5 transition-colors"
               >
                 <Edit2 className="size-3.5" />
-                Düzenle
+                {t("teachers.edit")}
               </button>
             )}
 
             {isEditingProfile ? (
               <div className="w-full space-y-4">
-                <h2 className="text-lg font-bold text-center mb-2">Öğretmeni Düzenle</h2>
+                <h2 className="text-lg font-bold text-center mb-2">{t("teachers.editTeacher")}</h2>
 
                 <div className="flex flex-col items-center gap-3">
                   {editProfilePictureUrl ? (
@@ -667,7 +704,7 @@ function TeachersPage() {
                       }`}
                     >
                       <Upload className="size-3.5" />
-                      Dosya Yükle
+                      {t("teachers.uploadFile")}
                     </button>
                     <button
                       type="button"
@@ -679,13 +716,15 @@ function TeachersPage() {
                       }`}
                     >
                       <Link2 className="size-3.5" />
-                      Link Yapıştır
+                      {t("teachers.pasteLink")}
                     </button>
                   </div>
 
                   {profileImageMode === "upload" ? (
                     <label className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold border border-dashed border-border rounded-md cursor-pointer hover:bg-foreground/5 transition-colors">
-                      {isUploadingProfileImage ? "Yükleniyor..." : "Bilgisayardan seç"}
+                      {isUploadingProfileImage
+                        ? t("teachers.uploading")
+                        : t("teachers.chooseFromPc")}
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/gif,image/webp"
@@ -710,14 +749,14 @@ function TeachersPage() {
                       onClick={handleRemoveProfileImage}
                       className="text-[11px] font-mono text-muted-foreground hover:text-red-600 transition-colors"
                     >
-                      Fotoğrafı kaldır
+                      {t("teachers.removePhoto")}
                     </button>
                   )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Ad</label>
+                    <label className="text-sm font-medium">{t("teachers.firstName")}</label>
                     <input
                       type="text"
                       value={editFirstName}
@@ -726,7 +765,7 @@ function TeachersPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Soyad</label>
+                    <label className="text-sm font-medium">{t("teachers.lastName")}</label>
                     <input
                       type="text"
                       value={editLastName}
@@ -737,7 +776,7 @@ function TeachersPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">E-posta</label>
+                  <label className="text-sm font-medium">{t("teachers.email")}</label>
                   <input
                     type="email"
                     value={editEmail}
@@ -747,7 +786,7 @@ function TeachersPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Branş</label>
+                  <label className="text-sm font-medium">{t("teachers.branch")}</label>
                   <select
                     required
                     value={editBranch}
@@ -755,27 +794,26 @@ function TeachersPage() {
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   >
                     <option value="" disabled>
-                      Bir branş seçin
+                      {t("teachers.selectBranch")}
                     </option>
                     {/* Eski kayıtlarda sabit listede olmayan bir branş varsa kaybolmasın diye
                         ayrıca gösteriyoruz; kaydetmeden önce listeden birine geçirilmeli. */}
-                    {editBranch &&
-                      !BRANCH_OPTIONS.includes(editBranch as (typeof BRANCH_OPTIONS)[number]) && (
-                        <option value={editBranch}>{editBranch} (eski değer)</option>
-                      )}
-                    {BRANCH_OPTIONS.map((b) => (
+                    {editBranch && !categories.includes(editBranch) && (
+                      <option value={editBranch}>
+                        {editBranch} {t("teachers.oldValue")}
+                      </option>
+                    )}
+                    {categories.map((b) => (
                       <option key={b} value={b}>
                         {b}
                       </option>
                     ))}
                   </select>
-                  <p className="text-[11px] text-muted-foreground">
-                    Bu öğretmen sadece seçilen branştaki kurslara eklenebilecek.
-                  </p>
+                  <p className="text-[11px] text-muted-foreground">{t("teachers.branchWarning")}</p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Kendim Hakkında</label>
+                  <label className="text-sm font-medium">{t("teachers.aboutMe")}</label>
                   <textarea
                     rows={3}
                     value={editAboutMe}
@@ -791,7 +829,7 @@ function TeachersPage() {
                     disabled={isSavingProfile}
                     className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors disabled:opacity-60"
                   >
-                    İptal
+                    {t("teachers.cancel")}
                   </button>
                   <button
                     type="button"
@@ -799,7 +837,7 @@ function TeachersPage() {
                     disabled={isSavingProfile || isUploadingProfileImage}
                     className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity disabled:opacity-60"
                   >
-                    {isSavingProfile ? "Kaydediliyor..." : "Kaydet"}
+                    {isSavingProfile ? t("teachers.saving") : t("teachers.save")}
                   </button>
                 </div>
               </div>
@@ -828,14 +866,14 @@ function TeachersPage() {
 
                 <h2 className="text-xl font-bold text-foreground mb-1 text-center">
                   {`${selectedProfileTeacher.firstName || selectedProfileTeacher.FirstName || ""} ${selectedProfileTeacher.lastName || selectedProfileTeacher.LastName || ""}`.trim() ||
-                    "İsimsiz Öğretmen"}
+                    t("teachers.unnamedTeacher")}
                 </h2>
                 <p className="text-[11px] tracking-[0.2em] font-medium uppercase text-muted-foreground mb-2">
-                  Öğretmen
+                  {t("teachers.teacherRole")}
                 </p>
                 <span
                   className={`mb-8 inline-block px-2 py-1 text-[10px] font-bold rounded-sm ${
-                    getTeacherStatus(selectedProfileTeacher) === "AKTİF"
+                    getTeacherStatus(selectedProfileTeacher) === t("teachers.active")
                       ? "bg-emerald-500/10 text-emerald-600"
                       : "bg-stone-500/10 text-stone-500"
                   }`}
@@ -845,18 +883,29 @@ function TeachersPage() {
 
                 <div className="w-full space-y-6 text-left">
                   <div>
-                    <h3 className="text-sm font-bold text-foreground/80 mb-2">Kendim Hakkında</h3>
+                    <h3 className="text-sm font-bold text-foreground/80 mb-2">
+                      {t("teachers.aboutMe")}
+                    </h3>
                     <p className="text-sm text-foreground">
                       {selectedProfileTeacher.aboutMe ||
                         selectedProfileTeacher.AboutMe ||
-                        "Henüz bir açıklama eklenmemiş."}
+                        t("teachers.noBio")}
                     </p>
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-bold text-foreground/80 mb-2">Branş</h3>
+                    <h3 className="text-sm font-bold text-foreground/80 mb-2">
+                      {t("teachers.branch")}
+                    </h3>
                     <p className="text-sm text-foreground">
-                      {selectedProfileTeacher.branch || selectedProfileTeacher.Branch || "-"}
+                      {(() => {
+                        const b = selectedProfileTeacher.branch || selectedProfileTeacher.Branch;
+                        return b
+                          ? i18n.exists(`dynamic.categories.${b}`)
+                            ? t(`dynamic.categories.${b}`)
+                            : b
+                          : "-";
+                      })()}
                     </p>
                   </div>
                 </div>
@@ -883,65 +932,83 @@ function TeachersPage() {
               <X className="size-5" />
             </button>
 
-            <h2 className="text-xl font-bold mb-6 tracking-tight">Yeni Öğretmen Ekle</h2>
+            <h2 className="text-xl font-bold mb-6 tracking-tight">
+              {t("teachers.addTeacherTitle")}
+            </h2>
 
             <form onSubmit={handleAddTeacher} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Ad</label>
+                  <label className="text-sm font-medium">{t("teachers.firstName")}</label>
                   <input
                     type="text"
                     required
+                    onInvalid={(e) =>
+                      (e.target as HTMLInputElement).setCustomValidity(t("validation.required"))
+                    }
+                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                     value={newFirstName}
                     onChange={(e) => setNewFirstName(e.target.value)}
-                    placeholder="Örn: Ayşe"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Soyad</label>
+                  <label className="text-sm font-medium">{t("teachers.lastName")}</label>
                   <input
                     type="text"
                     required
+                    onInvalid={(e) =>
+                      (e.target as HTMLInputElement).setCustomValidity(t("validation.required"))
+                    }
+                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                     value={newLastName}
                     onChange={(e) => setNewLastName(e.target.value)}
-                    placeholder="Örn: Yılmaz"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">E-posta</label>
+                <label className="text-sm font-medium">{t("teachers.email")}</label>
                 <input
                   type="email"
                   required
+                  onInvalid={(e) =>
+                    (e.target as HTMLInputElement).setCustomValidity(t("validation.required"))
+                  }
+                  onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                   pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
-                  title="Lütfen geçerli bir e-posta adresi girin (Örn: isim@mail.com)"
+                  title={t("teachers.emailTitle")}
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="Örn: ayse@example.com"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Kullanıcı Adı (Giriş ID)</label>
+                <label className="text-sm font-medium">{t("teachers.usernameLabel")}</label>
                 <input
                   type="text"
                   required
+                  onInvalid={(e) =>
+                    (e.target as HTMLInputElement).setCustomValidity(t("validation.required"))
+                  }
+                  onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  placeholder="Örn: ayseyilmaz"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Şifre</label>
+                <label className="text-sm font-medium">{t("teachers.password")}</label>
                 <input
                   type="password"
                   required
+                  onInvalid={(e) =>
+                    (e.target as HTMLInputElement).setCustomValidity(t("validation.required"))
+                  }
+                  onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -949,25 +1016,27 @@ function TeachersPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Branş</label>
+                <label className="text-sm font-medium">{t("teachers.branch")}</label>
                 <select
                   required
+                  onInvalid={(e) =>
+                    (e.target as HTMLSelectElement).setCustomValidity(t("validation.required"))
+                  }
+                  onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity("")}
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newBranch}
                   onChange={(e) => setNewBranch(e.target.value)}
                 >
                   <option value="" disabled>
-                    Bir branş seçin
+                    {t("teachers.selectBranch")}
                   </option>
-                  {BRANCH_OPTIONS.map((b) => (
+                  {categories.map((b) => (
                     <option key={b} value={b}>
-                      {b}
+                      {i18n.exists(`dynamic.categories.${b}`) ? t(`dynamic.categories.${b}`) : b}
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-muted-foreground">
-                  Bu öğretmen sadece seçilen branştaki kurslara eklenebilecek.
-                </p>
+                <p className="text-[11px] text-muted-foreground">{t("teachers.branchWarning")}</p>
               </div>
 
               <div className="pt-4 flex gap-3">
@@ -977,14 +1046,14 @@ function TeachersPage() {
                   disabled={isSubmitting}
                   className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors disabled:opacity-50"
                 >
-                  İptal
+                  {t("teachers.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
                   className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity disabled:opacity-50"
                 >
-                  {isSubmitting ? "Kaydediliyor..." : "Kaydet"}
+                  {isSubmitting ? t("teachers.saving") : t("teachers.save")}
                 </button>
               </div>
             </form>
@@ -1014,26 +1083,26 @@ function TeachersPage() {
                 <Trash2 className="size-5" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold mb-1">Silme Onayı</h3>
+                <h3 className="text-lg font-bold mb-1">{t("teachers.deleteConfirmTitle")}</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Seçili <strong>{selectedTeacherIds.length}</strong> öğretmeni silmek istediğinize
-                  emin misiniz?
+                  {t("teachers.deleteConfirmText1")} <strong>{selectedTeacherIds.length}</strong>{" "}
+                  {t("teachers.deleteConfirmText2")}
                 </p>
                 <p className="text-sm text-muted-foreground mb-6">
-                  Bu işlem geri alınamaz. Lütfen onaylayın veya iptal edin.
+                  {t("teachers.deleteConfirmWarning")}
                 </p>
                 <div className="flex justify-end gap-3">
                   <button
                     onClick={confirmDelete}
                     className="px-4 py-2 text-sm font-semibold bg-red-600 text-white hover:bg-red-700 rounded-md transition-colors"
                   >
-                    Evet, Sil
+                    {t("teachers.yesDelete")}
                   </button>
                   <button
                     onClick={cancelDelete}
                     className="px-4 py-2 text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
                   >
-                    Hayır, İptal
+                    {t("teachers.noCancel")}
                   </button>
                 </div>
               </div>

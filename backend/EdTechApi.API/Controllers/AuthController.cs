@@ -7,6 +7,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.Extensions.Caching.Memory;
+using EdTechApi.Business.Interfaces;
 
 namespace EdTechApi.API.Controllers
 {
@@ -16,41 +18,102 @@ namespace EdTechApi.API.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly AppDbContext _context;
+        private readonly IMemoryCache _memoryCache;
+        private readonly IEmailService _emailService;
 
-        // --- Sabit Kayıt Kodları (Geliştirme Ortamı İçin) ---
-        private const string TEACHER_CODE = "12345";
-        private const string ADMIN_CODE = "88888";
 
-        public AuthController(IConfiguration configuration, AppDbContext context)
+
+        public AuthController(IConfiguration configuration, AppDbContext context, IMemoryCache memoryCache, IEmailService emailService)
         {
             _configuration = configuration;
             _context = context;
+            _memoryCache = memoryCache;
+            _emailService = emailService;
+        }
+
+        [HttpPost("send-verification-email")]
+        public async Task<IActionResult> SendVerificationEmail([FromBody] SendVerificationEmailRequest request)
+        {
+            if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(request.Email))
+                return BadRequest("Geçerli bir e-posta adresi giriniz.");
+
+            var emailExists = await _context.Users.AnyAsync(u => u.Email == request.Email);
+            if (emailExists)
+                return BadRequest("Bu e-posta adresi zaten kullanımda.");
+
+            var code = new Random().Next(100000, 999999).ToString();
+
+            _memoryCache.Set(request.Email, code, TimeSpan.FromMinutes(5));
+
+            var subject = "E-Kurs Kayıt Doğrulama Kodu";
+            var body = $@"
+                <h3>E-Kurs Sistemine Hoş Geldiniz!</h3>
+                <p>Kayıt işleminizi tamamlamak için doğrulama kodunuz:</p>
+                <h2 style='color: #4285F4;'>{code}</h2>
+                <p>Bu kod 5 dakika boyunca geçerlidir.</p>
+            ";
+
+            await _emailService.SendEmailAsync(request.Email, subject, body);
+
+            return Ok(new { message = "Doğrulama kodu e-posta adresinize gönderildi." });
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
+            // Admin olan yetkililer kullanıcı/öğretmen eklerken OTP'yi atlayabilir
+            bool isAdmin = User?.IsInRole("Admin") == true || User?.IsInRole("superadmin") == true;
+
+            // E-posta OTP doğrulaması (Admin değilse zorunlu)
+            if (!isAdmin)
+            {
+                if (!_memoryCache.TryGetValue(request.Email, out string? expectedCode) || expectedCode != request.VerificationCode)
+                {
+                    return BadRequest("Geçersiz veya süresi dolmuş doğrulama kodu.");
+                }
+            }
+
+            if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(request.Email))
+                return BadRequest("Geçerli bir e-posta adresi giriniz.");
+
             // Kullanıcı adı veya E-posta kontrolü
-            var userExists = await _context.Users.AnyAsync(u => u.Username == request.Username);
-            if (userExists)
+            var usernameExists = await _context.Users.AnyAsync(u => u.Username == request.Username);
+            if (usernameExists)
                 return BadRequest("Bu kullanıcı adı zaten alınmış.");
+
+            var emailExists = await _context.Users.AnyAsync(u => u.Email == request.Email);
+            if (emailExists)
+                return BadRequest("Bu e-posta adresi zaten kullanımda.");
 
             // Rol ataması: Gelen RegistrationCode'a göre karar veriyoruz
             string assignedRole = "User"; // Varsayılan Öğrenci
 
             if (!string.IsNullOrEmpty(request.RegistrationCode))
             {
-                if (request.RegistrationCode == ADMIN_CODE)
-                {
-                    assignedRole = "Admin";
-                }
-                else if (request.RegistrationCode == TEACHER_CODE)
+                if (isAdmin && request.RegistrationCode == "ADMIN_BYPASS_TEACHER")
                 {
                     assignedRole = "Teacher";
                 }
                 else
                 {
-                    return BadRequest("Geçersiz Kayıt Kodu.");
+                    var adminCodeSetting = await _context.SystemSettings.FirstOrDefaultAsync(s => s.SettingKey == "ADMIN_CODE");
+                    var teacherCodeSetting = await _context.SystemSettings.FirstOrDefaultAsync(s => s.SettingKey == "TEACHER_CODE");
+                    
+                    string? adminCode = adminCodeSetting?.SettingValue;
+                    string? teacherCode = teacherCodeSetting?.SettingValue;
+
+                    if (!string.IsNullOrEmpty(adminCode) && request.RegistrationCode == adminCode)
+                    {
+                        assignedRole = "Admin";
+                    }
+                    else if (!string.IsNullOrEmpty(teacherCode) && request.RegistrationCode == teacherCode)
+                    {
+                        assignedRole = "Teacher";
+                    }
+                    else
+                    {
+                        return BadRequest("Geçersiz Kayıt Kodu.");
+                    }
                 }
             }
 
@@ -60,68 +123,79 @@ namespace EdTechApi.API.Controllers
                 assignedRole = "Admin";
             }
 
-            // 1. Önce Kullanıcı (User) Hesabını Oluştur
-            var newUser = new User
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                Username = request.Username,
-                Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                Role = assignedRole,
-                FirstName = request.FirstName, // EKLENDİ
-                LastName = request.LastName    // EKLENDİ
-            };
-
-            await _context.Users.AddAsync(newUser);
-            await _context.SaveChangesAsync();
-
-            // 2. Eğer rolü 'User' ise anında bir Öğrenci (Student) profili oluştur
-            if (assignedRole == "User")
-            {
-                var newStudent = new Student
+                // 1. Önce Kullanıcı (User) Hesabını Oluştur
+                var newUser = new User
                 {
+                    Username = request.Username,
+                    Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                    Role = assignedRole,
                     FirstName = request.FirstName,
                     LastName = request.LastName,
-                    Email = request.Email ?? (request.Username + "@ekurs.com"), // Gelen emaili kullan
-                    Date = DateTime.Now,
-                    UserId = newUser.Id 
+                    Email = request.Email
                 };
 
-                await _context.Students.AddAsync(newStudent);
-                await _context.SaveChangesAsync(); // Bu satırdan sonra newStudent.Id atanmış olur
-
-                // Öğrenci numarasını, sistemdeki diğer öğrencilerle aynı formatta üretiyoruz:
-                // "YY" (yılın son 2 hanesi) + Student.Id'nin 7 haneye tamamlanmış hali (örn. 260000014)
-                string yearPrefix = DateTime.Now.ToString("yy");
-                newStudent.StudentNumber = yearPrefix + newStudent.Id.ToString().PadLeft(7, '0');
+                await _context.Users.AddAsync(newUser);
                 await _context.SaveChangesAsync();
+
+                // 2. Eğer rolü 'User' ise anında bir Öğrenci (Student) profili oluştur
+                if (assignedRole == "User")
+                {
+                    var newStudent = new Student
+                    {
+                        FirstName = request.FirstName,
+                        LastName = request.LastName,
+                        Email = request.Email, 
+                        Date = DateTime.Now,
+                        UserId = newUser.Id 
+                    };
+
+                    await _context.Students.AddAsync(newStudent);
+                    await _context.SaveChangesAsync();
+
+                    string yearPrefix = DateTime.Now.ToString("yy");
+                    newStudent.StudentNumber = yearPrefix + newStudent.Id.ToString().PadLeft(7, '0');
+                    await _context.SaveChangesAsync();
+                }
+                // 3. Eğer rolü 'Teacher' ise anında bir Öğretmen (Teacher) profili oluştur
+                else if (assignedRole == "Teacher")
+                {
+                     var newTeacher = new Teacher
+                     {
+                         FirstName = request.FirstName,
+                         LastName = request.LastName,
+                         Email = request.Email,
+                         Date = DateTime.Now,
+                         UserId = newUser.Id
+                     };
+                     await _context.Teachers.AddAsync(newTeacher);
+                     await _context.SaveChangesAsync();
+
+                     string teacherYearPrefix = DateTime.Now.ToString("yy");
+                     newTeacher.TeacherNumber = teacherYearPrefix + newTeacher.Id.ToString().PadLeft(7, '0');
+                     await _context.SaveChangesAsync();
+                }
+
+                await transaction.CommitAsync();
+
+                // Kayıt başarılı olduysa kodu önbellekten siliyoruz
+                _memoryCache.Remove(request.Email);
+
+                return Ok(new { message = $"Kullanıcı başarıyla oluşturuldu. Atanan Rol: {assignedRole}" });
             }
-            // 3. Eğer rolü 'Teacher' ise anında bir Öğretmen (Teacher) profili oluştur
-            else if (assignedRole == "Teacher")
+            catch (Exception)
             {
-                 var newTeacher = new Teacher
-                 {
-                     FirstName = request.FirstName,
-                     LastName = request.LastName,
-                     Email = request.Email ?? (request.Username + "@ekurs.com"),
-                     Date = DateTime.Now,
-                     UserId = newUser.Id
-                 };
-                 await _context.Teachers.AddAsync(newTeacher);
-                 await _context.SaveChangesAsync(); // Bu satırdan sonra newTeacher.Id atanmış olur
-
-                 // Öğrencilerle aynı formatta numara üretiyoruz:
-                 // "YY" (yılın son 2 hanesi) + Id'nin 7 haneye tamamlanmış hali
-                 string teacherYearPrefix = DateTime.Now.ToString("yy");
-                 newTeacher.TeacherNumber = teacherYearPrefix + newTeacher.Id.ToString().PadLeft(7, '0');
-                 await _context.SaveChangesAsync();
+                await transaction.RollbackAsync();
+                throw;
             }
-
-            return Ok(new { message = $"Kullanıcı başarıyla oluşturuldu. Atanan Rol: {assignedRole}" });
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username || u.Email == request.Username);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
             {
@@ -221,5 +295,11 @@ namespace EdTechApi.API.Controllers
         // YENİ EKLENEN ALANLAR
         public string Email { get; set; } = string.Empty;
         public string? RegistrationCode { get; set; } 
+        public string VerificationCode { get; set; } = string.Empty; // YENİ
+    }
+
+    public class SendVerificationEmailRequest
+    {
+        public string Email { get; set; } = string.Empty;
     }
 }

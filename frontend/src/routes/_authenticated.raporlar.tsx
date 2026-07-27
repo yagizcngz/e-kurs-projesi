@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader, SectionHeader } from "../components/PageHeader";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useAdminGuard } from "../hooks/useAdminGuard";
 
 export const Route = createFileRoute("/_authenticated/raporlar")({
@@ -113,6 +114,7 @@ function KpiCard({ label, value, hint, hintTone = "muted", valueTone = "default"
 
 function ReportsPage() {
   useAdminGuard();
+  const { t, i18n } = useTranslation();
   const [dbStudents, setDbStudents] = useState<StudentData[]>([]);
   const [dbCourses, setDbCourses] = useState<CourseData[]>([]);
   const [dbEnrollments, setDbEnrollments] = useState<EnrollmentData[]>([]);
@@ -290,51 +292,36 @@ function ReportsPage() {
 
   const maxCount = Math.max(...monthCounts, 1);
 
-  const monthNames = [
-    "Oca",
-    "Şub",
-    "Mar",
-    "Nis",
-    "May",
-    "Haz",
-    "Tem",
-    "Ağu",
-    "Eyl",
-    "Eki",
-    "Kas",
-    "Ara",
-  ];
-
   const dynamicMonthlyTrend = trendMonths.map(({ year, month }, index) => ({
     // Farklı bir yıla denk gelen aylarda karışıklık olmasın diye kısa yıl ekleniyor (örn. "Oca '25")
-    m: monthNames[month] + (year !== currentYear ? ` '${String(year).slice(2)}` : ""),
+    m: t(`reports.months.${month}`) + (year !== currentYear ? ` '${String(year).slice(2)}` : ""),
     v: Math.round((monthCounts[index] / maxCount) * 100),
     raw: monthCounts[index],
   }));
 
   return (
     <>
-      <PageHeader crumb="/ raporlar" />
+      <PageHeader crumb={t("reports.breadcrumb")} />
 
       <div className="p-8 space-y-8 animate-reveal">
         {/* Son Eklenen Öğrenciler — en üstte */}
         <section className="space-y-4">
-          <SectionHeader title="Son Eklenen Öğrenciler" />
+          <SectionHeader title={t("reports.recentlyAddedStudents")} />
           <div className="bg-card border border-border overflow-x-auto rounded-md shadow-sm">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-foreground/2 border-b border-border">
                   <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
-                    Öğrenci Bilgisi
+                    {t("reports.studentInfo")}
                   </th>
                   <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
-                    Kayıtlı Kurs
+                    {t("reports.enrolledCourse")}
                   </th>
                   <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
-                    Kayıt Tarihi
+                    {t("reports.enrollmentDate")}
                   </th>
                   <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
-                    Durum
+                    {t("reports.status")}
                   </th>
                 </tr>
               </thead>
@@ -345,7 +332,7 @@ function ReportsPage() {
                       colSpan={4}
                       className="px-6 py-12 text-center text-muted-foreground animate-pulse font-mono text-xs uppercase tracking-widest"
                     >
-                      Veriler Yükleniyor...
+                      {t("reports.loadingData")}
                     </td>
                   </tr>
                 ) : dbStudents.length === 0 ? (
@@ -354,7 +341,7 @@ function ReportsPage() {
                       colSpan={4}
                       className="px-6 py-12 text-center text-muted-foreground text-xs"
                     >
-                      Kayıt bulunamadı.
+                      {t("reports.noRecords")}
                     </td>
                   </tr>
                 ) : (
@@ -366,7 +353,7 @@ function ReportsPage() {
                       const fullName =
                         s.name ||
                         `${s.firstName || s.FirstName || ""} ${s.lastName || s.LastName || ""}`.trim() ||
-                        "İsimsiz Öğrenci";
+                        t("reports.unnamedStudent");
                       const email = s.email || s.Email || "-";
                       const initials = s.initials || fullName.slice(0, 2).toUpperCase();
 
@@ -384,14 +371,20 @@ function ReportsPage() {
                           (enrNumber && studentNumber && enrNumber === studentNumber)
                         );
                       });
-                      const calculatedStatus = studentEnrollments.length > 0 ? "AKTİF" : "PASİF";
+                      const calculatedStatus =
+                        studentEnrollments.length > 0 ? t("reports.active") : t("reports.inactive");
 
                       let displayCourse = "-";
                       let displayDate = "-";
 
                       if (studentEnrollments.length > 0) {
                         const courseNames = studentEnrollments.map((e) => {
-                          return e.courseTitle || e.CourseTitle || "Bilinmeyen Kurs";
+                          const rawTitle = e.courseTitle || e.CourseTitle;
+                          return rawTitle
+                            ? i18n.exists(`dynamic.courses.${rawTitle}`)
+                              ? t(`dynamic.courses.${rawTitle}`)
+                              : rawTitle
+                            : t("reports.unknownCourse");
                         });
                         displayCourse = courseNames.join(", ");
 
@@ -408,8 +401,15 @@ function ReportsPage() {
                         }
                       }
 
+                      const rawCourseFallback = s.course || s.Course;
                       const course =
-                        displayCourse !== "-" ? displayCourse : s.course || s.Course || "-";
+                        displayCourse !== "-"
+                          ? displayCourse
+                          : rawCourseFallback
+                            ? i18n.exists(`dynamic.courses.${rawCourseFallback}`)
+                              ? t(`dynamic.courses.${rawCourseFallback}`)
+                              : rawCourseFallback
+                            : "-";
                       const dateRaw = s.date || s.Date;
                       const date =
                         displayDate !== "-"
@@ -441,7 +441,7 @@ function ReportsPage() {
                           <td className="px-6 py-4 text-right">
                             <span
                               className={`px-2 py-1 text-[10px] font-bold rounded-sm ${
-                                calculatedStatus === "AKTİF"
+                                calculatedStatus === t("reports.active")
                                   ? "bg-emerald-500/10 text-emerald-600"
                                   : "bg-stone-500/10 text-stone-500"
                               }`}
@@ -461,51 +461,51 @@ function ReportsPage() {
         {/* KPI kartları — üst sıra: toplamlar, alt sıra: aynı sütunda ilgili "silinen" kartı */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <KpiCard
-            label="Toplam Öğrenci"
+            label={t("reports.totalStudents")}
             value={isLoading ? "..." : totalStudents}
-            hint={`${studentGrowth > 0 ? "+" : ""}${studentGrowth.toFixed(1)}% geçen aya göre`}
+            hint={t("reports.vsLastMonth", { growth: studentGrowth.toFixed(1) })}
             hintTone={studentGrowth >= 0 ? "up" : "warn"}
           />
           <KpiCard
-            label="Toplam Öğretmen"
+            label={t("reports.totalTeachers")}
             value={isLoading ? "..." : totalTeachers}
-            hint="Kurslardaki tekil eğitmen sayısı"
+            hint={t("reports.uniqueInstructors")}
             hintTone="accent"
           />
           <KpiCard
-            label="Aktif Kurslar"
+            label={t("reports.activeCourses")}
             value={isLoading ? "..." : activeCourses}
-            hint="Yeni kurslar eklendi"
+            hint={t("reports.newCoursesAdded")}
             hintTone="accent"
           />
           <KpiCard
-            label="Yeni Kayıtlar"
+            label={t("reports.newEnrollments")}
             value={isLoading ? "..." : enrollmentsLast30}
-            hint={`${enrollmentGrowth > 0 ? "+" : ""}${enrollmentGrowth.toFixed(1)}% önceki 30 güne göre`}
+            hint={t("reports.vsPrev30Days", { growth: enrollmentGrowth.toFixed(1) })}
             hintTone={enrollmentGrowth >= 0 ? "up" : "warn"}
           />
           <KpiCard
-            label="Silinen Öğrenciler"
+            label={t("reports.deletedStudents")}
             value={isLoading ? "..." : totalDeletedStudents}
-            hint="Soft-delete ile işaretlenmiş öğrenciler"
+            hint={t("reports.deletedStudentsHint")}
             hintTone="muted"
           />
           <KpiCard
-            label="Silinen Öğretmenler"
+            label={t("reports.deletedTeachers")}
             value={isLoading ? "..." : totalDeletedTeachers}
-            hint="Soft-delete ile işaretlenmiş öğretmenler"
+            hint={t("reports.deletedTeachersHint")}
             hintTone="muted"
           />
           <KpiCard
-            label="Silinen Kurslar"
+            label={t("reports.deletedCourses")}
             value={isLoading ? "..." : totalDeletedCourses}
-            hint="Soft-delete ile işaretlenmiş kurslar"
+            hint={t("reports.deletedCoursesHint")}
             hintTone="muted"
           />
           <KpiCard
-            label="Silinen Kayıtlar"
+            label={t("reports.deletedEnrollments")}
             value={isLoading ? "..." : totalDeletedEnrollments}
-            hint="Soft-delete ile işaretlenmiş kayıtlar"
+            hint={t("reports.deletedEnrollmentsHint")}
             hintTone="muted"
           />
         </div>
@@ -513,16 +513,16 @@ function ReportsPage() {
         {/* Aylık Gelir ve Yıllık Gelir (Projeksiyon) — yan yana */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <KpiCard
-            label="Aylık Gelir"
+            label={t("reports.monthlyRevenue")}
             value={isLoading ? "..." : dynamicRevenue}
-            hint={`${revenueGrowth > 0 ? "+" : ""}${revenueGrowth.toFixed(1)}% geçen aya göre`}
+            hint={t("reports.vsLastMonth", { growth: revenueGrowth.toFixed(1) })}
             hintTone={revenueGrowth >= 0 ? "up" : "warn"}
             valueTone="accent"
           />
           <KpiCard
-            label="Yıllık Gelir (Projeksiyon)"
+            label={t("reports.annualRevenueProj")}
             value={isLoading ? "..." : yillikCiroFormatted}
-            hint="Aktif kayıtların güncel kurs fiyatına göre yıllık projeksiyonu"
+            hint={t("reports.annualRevenueHint")}
             hintTone="up"
             valueTone="accent"
           />
@@ -530,17 +530,17 @@ function ReportsPage() {
 
         <section className="space-y-4">
           <SectionHeader
-            title="Aylık Kayıt Trendi (Son 12 Ay)"
+            title={t("reports.monthlyTrendTitle")}
             right={
               <span className="text-[10px] font-mono text-muted-foreground uppercase">
-                BİRİM: GERÇEK KAYIT ADEDİ
+                {t("reports.monthlyTrendUnit")}
               </span>
             }
           />
           <div className="bg-card border border-border p-6 relative">
             {isLoading && (
               <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-sm flex items-center justify-center font-mono text-xs font-bold animate-pulse">
-                GRAFİK YÜKLENİYOR...
+                {t("reports.loadingChart")}
               </div>
             )}
             <div className="flex items-end gap-2 h-64">
@@ -548,8 +548,8 @@ function ReportsPage() {
                 <div key={d.m} className="flex-1 flex flex-col items-center gap-2 group">
                   <div className="w-full flex items-end h-full relative">
                     {/* Hover durumunda gerçek rakamı gösteren Tooltip */}
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] font-bold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                      {d.raw} Kayıt
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] font-bold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                      {t("reports.enrollmentCount", { count: d.raw })}
                     </div>
                     <div
                       className="w-full bg-accent/80 hover:bg-accent transition-all duration-500 rounded-t-sm"

@@ -10,8 +10,11 @@ import {
   Camera,
   Upload,
   Link2,
+  Search,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { translateBackendError } from "../lib/errorTranslator";
 import { useAdminGuard } from "../hooks/useAdminGuard";
 
 export const Route = createFileRoute("/_authenticated/ogrenciler")({
@@ -64,6 +67,7 @@ interface EnrollmentData {
 
 function StudentsPage() {
   useAdminGuard();
+  const { t, i18n } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [dbStudents, setDbStudents] = useState<StudentData[]>([]);
   const [dbEnrollments, setDbEnrollments] = useState<EnrollmentData[]>([]);
@@ -199,13 +203,13 @@ function StudentsPage() {
         prevStudents.filter((s) => !selectedStudentIds.includes(s.id || (s.Id as string | number))),
       );
 
-      showToast(`${selectedStudentIds.length} öğrenci başarıyla silindi!`);
+      showToast(t("students.errors.deleteSuccess", { count: selectedStudentIds.length }));
       setIsDeleteModalOpen(false);
       setSelectedStudentIds([]);
       setIsEditMode(false);
     } catch (error) {
       console.error("Silme hatası:", error);
-      showToast("Öğrenciler silinirken bir hata oluştu.", "error");
+      showToast(t("students.errors.deleteFailed"), "error");
     }
   };
 
@@ -217,7 +221,7 @@ function StudentsPage() {
     e.preventDefault();
 
     if (!newFirstName.trim() || !newLastName.trim()) {
-      showToast("Ad ve soyad boş olamaz.", "error");
+      showToast(t("students.errors.nameRequired"), "error");
       return;
     }
 
@@ -225,9 +229,13 @@ function StudentsPage() {
     try {
       // Register endpoint kullanıcıyı + öğrenci profilini otomatik oluşturur
       // (RegistrationCode boş = "User" rolü = otomatik Student kaydı)
+      const token = localStorage.getItem("jwt_token");
       const res = await fetch("http://localhost:5157/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           firstName: newFirstName.trim(),
           lastName: newLastName.trim(),
@@ -239,7 +247,7 @@ function StudentsPage() {
       });
 
       if (res.ok) {
-        showToast("Öğrenci başarıyla sisteme kaydedildi!");
+        showToast(t("students.errors.registerSuccess"));
         setNewFirstName("");
         setNewLastName("");
         setNewEmail("");
@@ -250,11 +258,12 @@ function StudentsPage() {
       } else {
         const errText = await res.text();
         console.error("Register hatası:", errText);
-        showToast(errText || "Kayıt başarısız!", "error");
+        const translatedError = translateBackendError(errText, t);
+        showToast(translatedError || t("students.errors.registerFailed"), "error");
       }
     } catch (error) {
       console.error(error);
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      showToast(t("students.errors.serverError"), "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -328,11 +337,11 @@ function StudentsPage() {
         const data = await response.json();
         setEditProfilePictureUrl(`http://localhost:5157${data.url}`);
       } else {
-        showToast("Fotoğraf yüklenemedi. Lütfen tekrar deneyin.", "error");
+        showToast(t("students.errors.photoUploadFailed"), "error");
       }
     } catch (error) {
       console.error(error);
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      showToast(t("students.errors.serverError"), "error");
     } finally {
       setIsUploadingProfileImage(false);
       e.target.value = "";
@@ -345,11 +354,11 @@ function StudentsPage() {
     if (!selectedProfileStudent) return;
     const studentId = selectedProfileStudent.id ?? selectedProfileStudent.Id;
     if (!studentId) {
-      showToast("Öğrenci kimliği bulunamadı.", "error");
+      showToast(t("students.errors.idNotFound"), "error");
       return;
     }
     if (!editFirstName.trim() || !editLastName.trim()) {
-      showToast("Ad ve soyad boş olamaz.", "error");
+      showToast(t("students.errors.nameRequired"), "error");
       return;
     }
 
@@ -398,15 +407,16 @@ function StudentsPage() {
           prev.map((s) => ((s.id ?? s.Id) === studentId ? updatedStudent : s)),
         );
         setIsEditingProfile(false);
-        showToast("Öğrenci başarıyla güncellendi.");
+        showToast(t("students.errors.updateSuccess"));
       } else {
         const errorText = await response.text();
         console.error("Öğrenci güncellenirken hata:", errorText);
-        showToast("Öğrenci güncellenirken bir hata oluştu.", "error");
+        const translatedError = translateBackendError(errorText, t);
+        showToast(translatedError || t("students.errors.updateFailed"), "error");
       }
     } catch (error) {
       console.error(error);
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      showToast(t("students.errors.serverError"), "error");
     } finally {
       setIsSavingProfile(false);
     }
@@ -415,7 +425,7 @@ function StudentsPage() {
   return (
     <>
       <PageHeader
-        crumb="/ ogrenciler "
+        crumb={t("students.breadcrumb")}
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         action={
@@ -426,7 +436,7 @@ function StudentsPage() {
                 className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-red-600 transition-colors animate-in fade-in"
               >
                 <Trash2 className="size-4" />
-                Seçilenleri Sil ({selectedStudentIds.length})
+                {t("students.deleteSelected", { count: selectedStudentIds.length })}
               </button>
             )}
 
@@ -434,7 +444,7 @@ function StudentsPage() {
               onClick={toggleEditMode}
               className="flex items-center gap-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md text-xs font-bold transition-colors"
             >
-              {isEditMode ? "İptal" : "Öğrencileri Düzenle"}
+              {isEditMode ? t("students.cancel") : t("students.editStudents")}
             </button>
 
             <button
@@ -442,7 +452,7 @@ function StudentsPage() {
               className="flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
             >
               <Plus className="size-4" />
-              Yeni Öğrenci
+              {t("students.newStudent")}
             </button>
           </div>
         }
@@ -450,7 +460,9 @@ function StudentsPage() {
 
       <div className="p-8 animate-reveal">
         <div className="flex items-end justify-between border-b border-foreground/10 pb-2 mb-4">
-          <h2 className="text-sm font-bold uppercase tracking-widest">Tüm Öğrenciler</h2>
+          <h2 className="text-sm font-bold uppercase tracking-widest">
+            {t("students.allStudents")}
+          </h2>
         </div>
 
         <div className="bg-card border border-border overflow-x-auto rounded-md shadow-sm">
@@ -458,16 +470,16 @@ function StudentsPage() {
             <thead>
               <tr className="bg-foreground/2 border-b border-border">
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
-                  Öğrenci
+                  {t("students.student")}
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
-                  E-Posta
+                  {t("students.email")}
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground">
-                  Kayıt Tarihi
+                  {t("students.registrationDate")}
                 </th>
                 <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
-                  Durum
+                  {t("students.status")}
                 </th>
                 {isEditMode && (
                   <th className="px-6 py-4 text-[10px] font-mono uppercase text-muted-foreground text-right">
@@ -491,13 +503,13 @@ function StudentsPage() {
                     colSpan={5}
                     className="px-6 py-12 text-center text-muted-foreground animate-pulse font-mono text-xs uppercase tracking-widest"
                   >
-                    Öğrenciler Yükleniyor...
+                    {t("students.loading")}
                   </td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-xs">
-                    Kayıtlı öğrenci bulunamadı.
+                    {t("students.notFound")}
                   </td>
                 </tr>
               ) : (
@@ -505,7 +517,7 @@ function StudentsPage() {
                   const fullName =
                     s.name ||
                     `${s.firstName || s.FirstName || ""} ${s.lastName || s.LastName || ""}`.trim() ||
-                    "İsimsiz Öğrenci";
+                    t("students.unnamedStudent");
                   const email = s.email || s.Email || "-";
                   const initials = s.initials || fullName.slice(0, 2).toUpperCase();
 
@@ -525,7 +537,8 @@ function StudentsPage() {
                     );
                   });
 
-                  const calculatedStatus = studentEnrollments.length > 0 ? "AKTİF" : "PASİF";
+                  const calculatedStatus =
+                    studentEnrollments.length > 0 ? t("students.active") : t("students.inactive");
                   const dateRaw = s.date || s.Date;
                   const date = dateRaw ? new Date(dateRaw).toLocaleDateString("tr-TR") : "-";
                   const currentId = s.id || s.Id;
@@ -544,7 +557,7 @@ function StudentsPage() {
                         <div
                           className="flex items-center gap-3 cursor-pointer group w-fit"
                           onClick={() => setSelectedProfileStudent(s)}
-                          title="Profili Görüntüle"
+                          title={t("students.viewProfile")}
                         >
                           <div className="size-10 rounded bg-muted grid place-items-center text-[10px] font-mono text-muted-foreground shrink-0 uppercase group-hover:bg-foreground group-hover:text-background transition-colors duration-300">
                             {initials}
@@ -562,7 +575,7 @@ function StudentsPage() {
                       <td className="px-6 py-4 text-right">
                         <span
                           className={`px-2 py-1 text-[10px] font-bold rounded-sm ${
-                            calculatedStatus === "AKTİF"
+                            calculatedStatus === t("students.active")
                               ? "bg-emerald-500/10 text-emerald-600"
                               : "bg-stone-500/10 text-stone-500"
                           }`}
@@ -589,7 +602,7 @@ function StudentsPage() {
         </div>
 
         <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground font-mono">
-          <div>Toplam {filteredStudents.length} öğrenci</div>
+          <div>{t("students.totalStudents", { count: filteredStudents.length })}</div>
         </div>
       </div>
 
@@ -616,13 +629,13 @@ function StudentsPage() {
                 className="absolute top-4 right-14 flex items-center gap-1.5 text-xs font-bold border border-border rounded-md px-3 py-1.5 hover:bg-foreground/5 transition-colors"
               >
                 <Edit2 className="size-3.5" />
-                Düzenle
+                {t("students.edit")}
               </button>
             )}
 
             {isEditingProfile ? (
               <div className="w-full space-y-4">
-                <h2 className="text-lg font-bold text-center mb-2">Öğrenciyi Düzenle</h2>
+                <h2 className="text-lg font-bold text-center mb-2">{t("students.editStudent")}</h2>
 
                 <div className="flex flex-col items-center gap-3">
                   {editProfilePictureUrl ? (
@@ -656,7 +669,7 @@ function StudentsPage() {
                       }`}
                     >
                       <Upload className="size-3.5" />
-                      Dosya Yükle
+                      {t("students.uploadFile")}
                     </button>
                     <button
                       type="button"
@@ -668,13 +681,15 @@ function StudentsPage() {
                       }`}
                     >
                       <Link2 className="size-3.5" />
-                      Link Yapıştır
+                      {t("students.pasteLink")}
                     </button>
                   </div>
 
                   {profileImageMode === "upload" ? (
                     <label className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold border border-dashed border-border rounded-md cursor-pointer hover:bg-foreground/5 transition-colors">
-                      {isUploadingProfileImage ? "Yükleniyor..." : "Bilgisayardan seç"}
+                      {isUploadingProfileImage
+                        ? t("students.uploading")
+                        : t("students.chooseFromPc")}
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/gif,image/webp"
@@ -699,14 +714,14 @@ function StudentsPage() {
                       onClick={handleRemoveProfileImage}
                       className="text-[11px] font-mono text-muted-foreground hover:text-red-600 transition-colors"
                     >
-                      Fotoğrafı kaldır
+                      {t("students.removePhoto")}
                     </button>
                   )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Ad</label>
+                    <label className="text-sm font-medium">{t("students.firstName")}</label>
                     <input
                       type="text"
                       value={editFirstName}
@@ -715,7 +730,7 @@ function StudentsPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Soyad</label>
+                    <label className="text-sm font-medium">{t("students.lastName")}</label>
                     <input
                       type="text"
                       value={editLastName}
@@ -726,7 +741,7 @@ function StudentsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">E-posta</label>
+                  <label className="text-sm font-medium">{t("students.email")}</label>
                   <input
                     type="email"
                     value={editEmail}
@@ -736,7 +751,7 @@ function StudentsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Kendim Hakkında</label>
+                  <label className="text-sm font-medium">{t("students.aboutMe")}</label>
                   <textarea
                     rows={3}
                     value={editAboutMe}
@@ -752,7 +767,7 @@ function StudentsPage() {
                     disabled={isSavingProfile}
                     className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors disabled:opacity-60"
                   >
-                    İptal
+                    {t("students.cancel")}
                   </button>
                   <button
                     type="button"
@@ -760,7 +775,7 @@ function StudentsPage() {
                     disabled={isSavingProfile || isUploadingProfileImage}
                     className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity disabled:opacity-60"
                   >
-                    {isSavingProfile ? "Kaydediliyor..." : "Kaydet"}
+                    {isSavingProfile ? t("students.saving") : t("students.save")}
                   </button>
                 </div>
               </div>
@@ -793,22 +808,24 @@ function StudentsPage() {
                 <h2 className="text-xl font-bold text-foreground mb-1 text-center">
                   {selectedProfileStudent.name ||
                     `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`.trim() ||
-                    "İsimsiz Öğrenci"}
+                    t("students.unnamedStudent")}
                 </h2>
                 <p className="text-[11px] tracking-[0.2em] font-medium uppercase text-muted-foreground mb-8">
-                  Öğrenci
+                  {t("students.studentRole")}
                 </p>
 
                 <div className="w-full space-y-6 text-left">
                   <div>
-                    <h3 className="text-sm font-bold text-foreground/80 mb-2">Kendim Hakkında</h3>
+                    <h3 className="text-sm font-bold text-foreground/80 mb-2">
+                      {t("students.aboutMe")}
+                    </h3>
                     <p className="text-sm text-foreground">
                       {selectedProfileStudent.aboutMe ||
                         selectedProfileStudent.AboutMe ||
-                        "Henüz bir açıklama eklenmemiş."}
+                        t("students.noBio")}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1 font-mono">
-                      No:{" "}
+                      {t("students.studentNo")}{" "}
                       {selectedProfileStudent.studentNumber ||
                         selectedProfileStudent.StudentNumber ||
                         "-"}
@@ -816,18 +833,27 @@ function StudentsPage() {
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-bold text-foreground/80 mb-2">Kayıtlı Kurslar</h3>
+                    <h3 className="text-sm font-bold text-foreground/80 mb-2">
+                      {t("students.enrolledCourses")}
+                    </h3>
                     {getSelectedStudentEnrollments().length > 0 ? (
                       <ul className="text-sm text-foreground space-y-1.5">
                         {getSelectedStudentEnrollments().map((enr, idx) => (
                           <li key={idx} className="flex items-center gap-2">
                             <span className="size-1.5 rounded-full bg-foreground/50 shrink-0"></span>
-                            {enr.courseTitle || enr.CourseTitle}
+                            {(() => {
+                              const rawTitle = enr.courseTitle || enr.CourseTitle;
+                              return rawTitle
+                                ? i18n.exists(`dynamic.courses.${rawTitle}`)
+                                  ? t(`dynamic.courses.${rawTitle}`)
+                                  : rawTitle
+                                : "-";
+                            })()}
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Henüz kurs kaydı bulunmuyor.</p>
+                      <p className="text-sm text-muted-foreground">{t("students.noEnrollments")}</p>
                     )}
                   </div>
                 </div>
@@ -854,65 +880,83 @@ function StudentsPage() {
               <X className="size-5" />
             </button>
 
-            <h2 className="text-xl font-bold mb-6 tracking-tight">Yeni Öğrenci Ekle</h2>
+            <h2 className="text-xl font-bold mb-6 tracking-tight">
+              {t("students.addStudentTitle")}
+            </h2>
 
             <form onSubmit={handleAddStudent} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Ad</label>
+                  <label className="text-sm font-medium">{t("students.firstName")}</label>
                   <input
                     type="text"
                     required
+                    onInvalid={(e) =>
+                      (e.target as HTMLInputElement).setCustomValidity(t("validation.required"))
+                    }
+                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                     value={newFirstName}
                     onChange={(e) => setNewFirstName(e.target.value)}
-                    placeholder="Örn: Yağız"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Soyad</label>
+                  <label className="text-sm font-medium">{t("students.lastName")}</label>
                   <input
                     type="text"
                     required
+                    onInvalid={(e) =>
+                      (e.target as HTMLInputElement).setCustomValidity(t("validation.required"))
+                    }
+                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                     className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                     value={newLastName}
                     onChange={(e) => setNewLastName(e.target.value)}
-                    placeholder="Örn: Cengiz"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">E-posta</label>
+                <label className="text-sm font-medium">{t("students.email")}</label>
                 <input
                   type="email"
                   required
+                  onInvalid={(e) =>
+                    (e.target as HTMLInputElement).setCustomValidity(t("validation.required"))
+                  }
+                  onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                   pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
-                  title="Lütfen geçerli bir e-posta adresi girin (Örn: isim@mail.com)"
+                  title={t("students.emailTitle")}
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="Örn: yagiz@example.com"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Kullanıcı Adı (Giriş ID)</label>
+                <label className="text-sm font-medium">{t("students.usernameLabel")}</label>
                 <input
                   type="text"
                   required
+                  onInvalid={(e) =>
+                    (e.target as HTMLInputElement).setCustomValidity(t("validation.required"))
+                  }
+                  onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  placeholder="Örn: yagizcngz"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Şifre</label>
+                <label className="text-sm font-medium">{t("students.password")}</label>
                 <input
                   type="password"
                   required
+                  onInvalid={(e) =>
+                    (e.target as HTMLInputElement).setCustomValidity(t("validation.required"))
+                  }
+                  onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                   className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -926,14 +970,14 @@ function StudentsPage() {
                   disabled={isSubmitting}
                   className="flex-1 py-2.5 px-4 bg-muted text-muted-foreground text-sm font-bold hover:bg-muted/80 rounded-md transition-colors disabled:opacity-50"
                 >
-                  İptal
+                  {t("students.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
                   className="flex-1 py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity disabled:opacity-50"
                 >
-                  {isSubmitting ? "Kaydediliyor..." : "Kaydet"}
+                  {isSubmitting ? t("students.saving") : t("students.save")}
                 </button>
               </div>
             </form>
@@ -963,26 +1007,26 @@ function StudentsPage() {
                 <Trash2 className="size-5" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold mb-1">Silme Onayı</h3>
+                <h3 className="text-lg font-bold mb-1">{t("students.deleteConfirmTitle")}</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Seçili <strong>{selectedStudentIds.length}</strong> öğrenciyi silmek istediğinize
-                  emin misiniz?
+                  {t("students.deleteConfirmText1")} <strong>{selectedStudentIds.length}</strong>{" "}
+                  {t("students.deleteConfirmText2")}
                 </p>
                 <p className="text-sm text-muted-foreground mb-6">
-                  Bu işlem geri alınamaz. Lütfen onaylayın veya iptal edin.
+                  {t("students.deleteConfirmWarning")}
                 </p>
                 <div className="flex justify-end gap-3">
                   <button
                     onClick={confirmDelete}
                     className="px-4 py-2 text-sm font-semibold bg-red-600 text-white hover:bg-red-700 rounded-md transition-colors"
                   >
-                    Evet
+                    {t("students.yes")}
                   </button>
                   <button
                     onClick={cancelDelete}
                     className="px-4 py-2 text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
                   >
-                    Hayır
+                    {t("students.no")}
                   </button>
                 </div>
               </div>

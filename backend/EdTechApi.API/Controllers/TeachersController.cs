@@ -1,22 +1,27 @@
 using EdTechApi.Business.Interfaces;
 using EdTechApi.Core.Constants;
 using EdTechApi.Core.Entities;
+using EdTechApi.DataAccess.Context;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EdTechApi.API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class TeachersController : ControllerBase
     {
         private readonly ITeacherService _teacherService;
         private readonly ICourseService _courseService;
+        private readonly AppDbContext _context;
 
-        public TeachersController(ITeacherService teacherService, ICourseService courseService)
+        public TeachersController(ITeacherService teacherService, ICourseService courseService, AppDbContext context)
         {
             _teacherService = teacherService;
             _courseService = courseService;
+            _context = context;
         }
 
         [HttpGet]
@@ -43,12 +48,13 @@ namespace EdTechApi.API.Controllers
         {
             // Branş, kurs kategorileriyle eşleştirme yapılabilmesi için sabit listeden
             // seçilmiş olmalı — serbest metin artık kabul edilmiyor.
-            if (!BranchOptions.IsValid(newTeacher.Branch))
+            var category = await _context.Categories.FirstOrDefaultAsync(c => c.Name.ToLower() == (newTeacher.Branch ?? "").ToLower());
+            if (category == null)
             {
-                return BadRequest(
-                    $"Geçersiz branş. Lütfen şu değerlerden birini seçin: {string.Join(", ", BranchOptions.All)}");
+                var allCategories = await _context.Categories.Select(c => c.Name).ToListAsync();
+                return BadRequest($"Geçersiz branş. Lütfen şu değerlerden birini seçin: {string.Join(", ", allCategories)}");
             }
-            newTeacher.Branch = BranchOptions.Normalize(newTeacher.Branch);
+            newTeacher.Branch = category.Name;
 
             await _teacherService.AddTeacherAsync(newTeacher);
             return CreatedAtAction(nameof(GetById), new { id = newTeacher.Id }, newTeacher);
@@ -60,12 +66,13 @@ namespace EdTechApi.API.Controllers
         {
             // Branş, kurs kategorileriyle eşleştirme yapılabilmesi için sabit listeden
             // seçilmiş olmalı — serbest metin artık kabul edilmiyor.
-            if (!BranchOptions.IsValid(updatedTeacher.Branch))
+            var category = await _context.Categories.FirstOrDefaultAsync(c => c.Name.ToLower() == (updatedTeacher.Branch ?? "").ToLower());
+            if (category == null)
             {
-                return BadRequest(
-                    $"Geçersiz branş. Lütfen şu değerlerden birini seçin: {string.Join(", ", BranchOptions.All)}");
+                var allCategories = await _context.Categories.Select(c => c.Name).ToListAsync();
+                return BadRequest($"Geçersiz branş. Lütfen şu değerlerden birini seçin: {string.Join(", ", allCategories)}");
             }
-            var normalizedBranch = BranchOptions.Normalize(updatedTeacher.Branch);
+            var normalizedBranch = category.Name;
             updatedTeacher.Branch = normalizedBranch;
 
             var existingTeacher = await _teacherService.GetTeacherByIdAsync(id);
@@ -87,7 +94,7 @@ namespace EdTechApi.API.Controllers
 
                 if (coursesInCurrentBranch.Any())
                 {
-                    var titles = string.Join(", ", coursesInCurrentBranch.Select(c => c.Title));
+                    var titles = string.Join(", ", coursesInCurrentBranch.Select(c => c.Title ?? "Bilinmeyen Kurs"));
                     return BadRequest(
                         $"Bu öğretmenin branşı değiştirilemez: '{existingTeacher.Branch}' branşındaki şu kurs(lar)a hâlâ atanmış: {titles}. Önce bu kursları başka bir eğitmene atayın, sonra branşı değiştirin.");
                 }
@@ -124,6 +131,7 @@ namespace EdTechApi.API.Controllers
         }
 
         // Silinmiş (soft-deleted) öğretmenler — Raporlar sayfasındaki "Silinen Öğretmenler" kartı için
+        [Authorize(Roles = "Admin,superadmin")]
         [HttpGet("deleted")]
         public async Task<IActionResult> GetDeletedTeachers()
         {

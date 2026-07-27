@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
+using EdTechApi.Business.BackgroundJobs;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Add Database Context and tell it where the migrations live
@@ -17,6 +19,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection"),
         b => b.MigrationsAssembly("EdTechApi.DataAccess")
     ));
+
+// Add MemoryCache for OTP storage
+builder.Services.AddMemoryCache();
+
+// Servis kayıtları
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // 2. Add Dependency Injection for our Business Services
 builder.Services.AddScoped<IStudentService, StudentService>();
@@ -70,7 +78,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-app.UseCors("AllowWebClient");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<EdTechApi.API.Middlewares.ExceptionMiddleware>();

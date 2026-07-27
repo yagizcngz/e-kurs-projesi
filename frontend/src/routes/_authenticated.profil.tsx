@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader, SectionHeader } from "../components/PageHeader";
 import { CheckCircle2, Edit2, UploadCloud } from "lucide-react";
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 export const Route = createFileRoute("/_authenticated/profil")({
   head: () => ({
@@ -53,17 +55,18 @@ interface ProfileDto {
   LastName?: string;
 }
 
-const translateRole = (role: string) => {
+const translateRole = (role: string, t: TFunction) => {
   const r = String(role).toLowerCase();
-  if (r === "user") return "ÖĞRENCİ";
-  if (r === "teacher") return "ÖĞRETMEN";
-  if (r === "admin") return "ADMİN";
+  if (r === "user") return t("profile.roles.student");
+  if (r === "teacher") return t("profile.roles.teacher");
+  if (r === "admin") return t("profile.roles.admin");
   return String(role).toUpperCase();
 };
 
 function ProfilePage() {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
-  const [role, setRole] = useState("ÖĞRENCİ");
+  const [role, setRole] = useState(t("profile.roles.student"));
   const [photoUrl, setPhotoUrl] = useState("");
   const [bio, setBio] = useState("");
   const [enrollments, setEnrollments] = useState<EnrollmentDto[]>([]);
@@ -73,7 +76,7 @@ function ProfilePage() {
 
   useEffect(() => {
     const token = localStorage.getItem("jwt_token");
-    let currentUserName = "Kullanıcı";
+    let currentUserName = t("profile.defaultUser");
 
     if (token) {
       const payload = parseJwt(token);
@@ -95,7 +98,7 @@ function ProfilePage() {
         }
 
         // Çeviri fonksiyonunu burada çağırıyoruz
-        setRole(translateRole(tokenRole));
+        setRole(translateRole(tokenRole, t));
       }
     }
 
@@ -118,8 +121,9 @@ function ProfilePage() {
           const fName = data.firstName || data.FirstName;
           const lName = data.lastName || data.LastName;
 
-          if (fName && lName) {
-            const fullName = `${fName} ${lName}`;
+          const fullName = [fName, lName].filter(Boolean).join(" ");
+
+          if (fullName) {
             setName(fullName);
 
             window.dispatchEvent(
@@ -140,7 +144,7 @@ function ProfilePage() {
     };
 
     loadProfile();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const token = localStorage.getItem("jwt_token");
@@ -185,7 +189,7 @@ function ProfilePage() {
     e.preventDefault();
     const currentUserName = name.trim();
     if (!currentUserName) {
-      showToast("Görünen ad boş olamaz.", "error");
+      showToast(t("profile.errors.nameRequired"), "error");
       return;
     }
 
@@ -207,13 +211,13 @@ function ProfilePage() {
         window.dispatchEvent(
           new CustomEvent("profile-updated", { detail: { name: currentUserName, photoUrl } }),
         );
-        showToast("Profil başarıyla güncellendi.");
+        showToast(t("profile.errors.updateSuccess"));
       } else {
-        showToast("Profil güncellenirken bir hata oluştu.", "error");
+        showToast(t("profile.errors.updateFailed"), "error");
       }
     } catch (err) {
       console.error(err);
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      showToast(t("profile.errors.serverError"), "error");
     }
   };
 
@@ -240,11 +244,11 @@ function ProfilePage() {
           new CustomEvent("profile-updated", { detail: { name, photoUrl: fullUrl } }),
         );
       } else {
-        showToast("Fotoğraf yüklenirken bir hata oluştu.", "error");
+        showToast(t("profile.errors.photoUploadFailed"), "error");
       }
     } catch (err) {
       console.error(err);
-      showToast("Sunucuya ulaşılamıyor.", "error");
+      showToast(t("profile.errors.serverError"), "error");
     }
   };
 
@@ -274,10 +278,10 @@ function ProfilePage() {
 
   return (
     <>
-      <PageHeader crumb="/ profil / benim" />
+      <PageHeader crumb={t("profile.breadcrumb")} />
 
       <div className="p-8 space-y-6 animate-reveal">
-        <SectionHeader title="Profilim" />
+        <SectionHeader title={t("profile.title")} />
 
         <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
           <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
@@ -296,24 +300,25 @@ function ProfilePage() {
                 )}
               </div>
               <div>
-                <h2 className="text-xl font-bold">{name || "Kullanıcı"}</h2>
+                <h2 className="text-xl font-bold">{name || t("profile.defaultUser")}</h2>
                 <p className="text-sm text-muted-foreground uppercase tracking-[0.2em]">{role}</p>
               </div>
             </div>
 
             <div className="mt-8 space-y-6">
               <div>
-                <h3 className="text-sm font-bold text-muted-foreground mb-1">Kendim Hakkında</h3>
+                <h3 className="text-sm font-bold text-muted-foreground mb-1">
+                  {t("profile.aboutMe")}
+                </h3>
                 <p className="mt-2 text-sm text-foreground leading-6">
-                  {!profileLoaded
-                    ? "Yükleniyor..."
-                    : bio ||
-                      "Henüz bir açıklama eklemediniz. Profilinizi güncelleyerek ekleyebilirsiniz."}
+                  {!profileLoaded ? t("profile.loading") : bio || t("profile.noBio")}
                 </p>
               </div>
 
               <div>
-                <h3 className="text-sm font-bold text-muted-foreground mb-1">Kayıtlı Kurslar</h3>
+                <h3 className="text-sm font-bold text-muted-foreground mb-1">
+                  {t("profile.enrolledCourses")}
+                </h3>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {displayedCourses.length > 0 ? (
                     displayedCourses.map((course) => (
@@ -325,7 +330,7 @@ function ProfilePage() {
                       </span>
                     ))
                   ) : (
-                    <p className="text-sm text-muted-foreground">Henüz kurs kaydınız görünmüyor.</p>
+                    <p className="text-sm text-muted-foreground">{t("profile.noCourses")}</p>
                   )}
                 </div>
               </div>
@@ -335,8 +340,10 @@ function ProfilePage() {
           <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-sm font-bold text-muted-foreground">Profil bilgileri</p>
-                <h2 className="text-xl font-bold">Profili güncelle</h2>
+                <p className="text-sm font-bold text-muted-foreground">
+                  {t("profile.profileInfo")}
+                </p>
+                <h2 className="text-xl font-bold">{t("profile.updateProfile")}</h2>
               </div>
               <div className="rounded-full bg-foreground/5 p-3 text-foreground">
                 <Edit2 className="w-4 h-4" />
@@ -345,7 +352,7 @@ function ProfilePage() {
 
             <form onSubmit={handleSaveProfile} className="space-y-5">
               <div>
-                <label className="text-sm font-medium">Profil Fotoğrafı URL</label>
+                <label className="text-sm font-medium">{t("profile.photoUrl")}</label>
                 <input
                   type="url"
                   value={photoUrl && photoUrl.startsWith("data:") ? "" : photoUrl}
@@ -353,7 +360,7 @@ function ProfilePage() {
                   placeholder="https://..."
                   className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-foreground transition-colors"
                 />
-                <div className="mt-2 text-xs text-muted-foreground">veya</div>
+                <div className="mt-2 text-xs text-muted-foreground">{t("profile.or")}</div>
                 <div className="mt-2 flex items-center gap-3">
                   <button
                     type="button"
@@ -361,14 +368,14 @@ function ProfilePage() {
                     className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-foreground/5 transition-colors"
                   >
                     <UploadCloud className="w-4 h-4 text-foreground" />
-                    Dosya Seç
+                    {t("profile.chooseFile")}
                   </button>
                   <div className="text-sm text-muted-foreground">
                     {fileInputRef.current &&
                     fileInputRef.current.files &&
                     fileInputRef.current.files.length > 0
                       ? fileInputRef.current.files[0].name
-                      : "Dosya seçilmedi"}
+                      : t("profile.noFileChosen")}
                   </div>
                   <input
                     ref={fileInputRef}
@@ -381,7 +388,7 @@ function ProfilePage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Görünen Adınız</label>
+                <label className="text-sm font-medium">{t("profile.displayName")}</label>
                 <input
                   type="text"
                   value={name}
@@ -391,7 +398,7 @@ function ProfilePage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Kendim Hakkında</label>
+                <label className="text-sm font-medium">{t("profile.aboutMe")}</label>
                 <textarea
                   rows={4}
                   value={bio}
@@ -405,7 +412,7 @@ function ProfilePage() {
                 className="inline-flex items-center gap-2 rounded-md bg-foreground px-5 py-3 text-sm font-semibold text-background hover:bg-accent transition-colors"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                Profili Güncelle
+                {t("profile.saveProfile")}
               </button>
             </form>
           </div>

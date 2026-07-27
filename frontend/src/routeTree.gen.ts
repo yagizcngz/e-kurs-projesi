@@ -20,6 +20,7 @@ import { Route as AuthenticatedOgretmenlerRouteImport } from './routes/_authenti
 import { Route as AuthenticatedOgrencilerRouteImport } from './routes/_authenticated.ogrenciler'
 import { Route as AuthenticatedKurslarRouteImport } from './routes/_authenticated.kurslar'
 import { Route as AuthenticatedKayitlarRouteImport } from './routes/_authenticated.kayitlar'
+import { Route as AuthenticatedAyarlarRouteImport } from './routes/_authenticated.ayarlar'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -76,12 +77,18 @@ const AuthenticatedKayitlarRoute = AuthenticatedKayitlarRouteImport.update({
   path: '/kayitlar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAyarlarRoute = AuthenticatedAyarlarRouteImport.update({
+  id: '/ayarlar',
+  path: '/ayarlar',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/ayarlar': typeof AuthenticatedAyarlarRoute
   '/kayitlar': typeof AuthenticatedKayitlarRoute
   '/kurslar': typeof AuthenticatedKurslarRoute
   '/ogrenciler': typeof AuthenticatedOgrencilerRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/ayarlar': typeof AuthenticatedAyarlarRoute
   '/kayitlar': typeof AuthenticatedKayitlarRoute
   '/kurslar': typeof AuthenticatedKurslarRoute
   '/ogrenciler': typeof AuthenticatedOgrencilerRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/_authenticated/ayarlar': typeof AuthenticatedAyarlarRoute
   '/_authenticated/kayitlar': typeof AuthenticatedKayitlarRoute
   '/_authenticated/kurslar': typeof AuthenticatedKurslarRoute
   '/_authenticated/ogrenciler': typeof AuthenticatedOgrencilerRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/sitemap.xml'
+    | '/ayarlar'
     | '/kayitlar'
     | '/kurslar'
     | '/ogrenciler'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/sitemap.xml'
+    | '/ayarlar'
     | '/kayitlar'
     | '/kurslar'
     | '/ogrenciler'
@@ -146,6 +157,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/sitemap.xml'
+    | '/_authenticated/ayarlar'
     | '/_authenticated/kayitlar'
     | '/_authenticated/kurslar'
     | '/_authenticated/ogrenciler'
@@ -241,10 +253,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedKayitlarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/ayarlar': {
+      id: '/_authenticated/ayarlar'
+      path: '/ayarlar'
+      fullPath: '/ayarlar'
+      preLoaderRoute: typeof AuthenticatedAyarlarRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAyarlarRoute: typeof AuthenticatedAyarlarRoute
   AuthenticatedKayitlarRoute: typeof AuthenticatedKayitlarRoute
   AuthenticatedKurslarRoute: typeof AuthenticatedKurslarRoute
   AuthenticatedOgrencilerRoute: typeof AuthenticatedOgrencilerRoute
@@ -255,6 +275,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAyarlarRoute: AuthenticatedAyarlarRoute,
   AuthenticatedKayitlarRoute: AuthenticatedKayitlarRoute,
   AuthenticatedKurslarRoute: AuthenticatedKurslarRoute,
   AuthenticatedOgrencilerRoute: AuthenticatedOgrencilerRoute,

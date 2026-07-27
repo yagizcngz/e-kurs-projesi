@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/register")({
   component: RegisterPage,
 });
 
 function RegisterPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate({ from: "/register" });
 
   const [firstName, setFirstName] = useState("");
@@ -14,13 +16,22 @@ function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [registrationCode, setRegistrationCode] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [isEmailSent, setIsEmailSent] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     try {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setError(t("register.invalidEmail"));
+        return;
+      }
       const response = await fetch("http://localhost:5157/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -31,6 +42,7 @@ function RegisterPage() {
           email,
           password,
           registrationCode: registrationCode.trim() || null,
+          verificationCode: verificationCode.trim(),
         }),
       });
 
@@ -38,10 +50,41 @@ function RegisterPage() {
         navigate({ to: "/login" });
       } else {
         const errorText = await response.text();
-        setError(errorText || "Kayıt olurken bir hata oluştu!");
+        setError(errorText || t("register.registerError"));
       }
     } catch (err) {
-      setError("Sunucuya ulaşılamıyor.");
+      setError(t("register.serverError"));
+    }
+  };
+
+  const handleSendVerificationEmail = async () => {
+    setError("");
+    setSuccessMsg("");
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError(t("register.invalidEmail"));
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const response = await fetch("http://localhost:5157/api/auth/send-verification-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (response.ok) {
+        setIsEmailSent(true);
+        setSuccessMsg(t("register.emailSentSuccess"));
+      } else {
+        const errorText = await response.text();
+        setError(errorText || t("register.codeSendError"));
+      }
+    } catch (err) {
+      setError(t("register.serverError"));
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -53,7 +96,7 @@ function RegisterPage() {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-foreground text-background font-bold text-xl mb-4">
             EK
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Yeni Hesap Aç</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("register.title")}</h1>
         </div>
 
         {error && (
@@ -65,56 +108,95 @@ function RegisterPage() {
         <form onSubmit={handleRegister} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Ad</label>
+              <label className="text-sm font-medium text-foreground">
+                {t("register.firstName")}
+              </label>
               <input
                 type="text"
                 required
                 className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Örn: Yağız"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Soyad</label>
+              <label className="text-sm font-medium text-foreground">
+                {t("register.lastName")}
+              </label>
               <input
                 type="text"
                 required
                 className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder="Örn: Cengiz"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">E-posta</label>
-            <input
-              type="email"
-              required
-              className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Örn: yagiz@example.com"
-            />
+            <label className="text-sm font-medium text-foreground">{t("register.email")}</label>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                required
+                className="flex-1 p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors disabled:opacity-50"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isEmailSent}
+              />
+              <button
+                type="button"
+                onClick={handleSendVerificationEmail}
+                disabled={isSending || isEmailSent || !email}
+                className="px-4 py-2 bg-foreground text-background text-sm font-medium rounded-md hover:bg-foreground/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {isSending
+                  ? t("register.sending")
+                  : isEmailSent
+                    ? t("register.sent")
+                    : t("register.sendCode")}
+              </button>
+            </div>
           </div>
 
+          {isEmailSent && (
+            <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-300">
+              <label className="text-sm font-medium text-foreground">
+                {t("register.verificationCode")}
+              </label>
+              <input
+                type="text"
+                required
+                placeholder={t("register.codePlaceholder")}
+                className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+              />
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="p-3 bg-green-50/50 border border-green-200/50 rounded-lg text-sm text-green-600 text-center animate-in fade-in zoom-in duration-300">
+              {successMsg}
+            </div>
+          )}
+
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Kullanıcı Adı (Giriş ID)</label>
+            <label className="text-sm font-medium text-foreground">{t("register.username")}</label>
             <input
               type="text"
               required
               className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Örn: yagizcngz"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Şifre</label>
+              <label className="text-sm font-medium text-foreground">
+                {t("register.password")}
+              </label>
               <input
                 type="password"
                 required
@@ -125,31 +207,33 @@ function RegisterPage() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                Kayıt Kodu{" "}
-                <span className="text-muted-foreground text-xs font-normal">(Opsiyonel)</span>
+                {t("register.teacherCode")}{" "}
+                <span className="text-muted-foreground text-xs font-normal">
+                  {t("register.optional")}
+                </span>
               </label>
               <input
                 type="text"
                 className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
                 value={registrationCode}
                 onChange={(e) => setRegistrationCode(e.target.value)}
-                placeholder="Bırakılabilir"
               />
             </div>
           </div>
 
           <button
             type="submit"
-            className="w-full py-2.5 px-4 bg-foreground text-background text-sm font-bold hover:opacity-90 rounded-md transition-opacity mt-4"
+            disabled={!isEmailSent}
+            className="w-full py-3 bg-foreground text-background font-medium rounded-md hover:bg-foreground/90 transition-all duration-300 disabled:opacity-50"
           >
-            Kayıt Ol
+            {t("register.createAccountButton")}
           </button>
         </form>
 
         <div className="mt-6 text-center text-sm text-muted-foreground">
-          Zaten hesabın var mı?{" "}
+          {t("register.alreadyHaveAccount")}{" "}
           <Link to="/login" className="font-semibold text-foreground hover:underline">
-            Giriş Yap
+            {t("register.login")}
           </Link>
         </div>
       </div>
