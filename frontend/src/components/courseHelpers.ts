@@ -60,6 +60,10 @@ export interface EnrollmentDto {
   StudentNumber?: string;
   courseTitle?: string;
   CourseTitle?: string;
+  courseId?: string | number;
+  CourseId?: string | number;
+  course?: CourseData;
+  Course?: CourseData;
 }
 
 export interface StudentLiteDto {
@@ -80,6 +84,8 @@ export interface StudentLiteDto {
 export interface TeacherLiteDto {
   id?: string | number;
   Id?: string | number;
+  userId?: string | number;
+  UserId?: string | number;
   firstName?: string;
   FirstName?: string;
   lastName?: string;

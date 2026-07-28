@@ -3,11 +3,15 @@
     "searchPlaceholder": "Sistemde ara...",
     "sidebar": {
       "home": "Ana Sayfa",
+      "myCourses": "Kurslarım",
+      "taughtCourses": "Verdiğim Kurslar",
+      "pendingRequests": "Bekleyen İstekler",
       "students": "Öğrenciler",
       "teachers": "Öğretmenler",
       "courses": "Kurslar",
       "enrollments": "Kayıtlar",
       "reports": "Raporlar",
+      "announcements": "Duyurular",
       "profile": "Profil",
       "settings": "Ayarlar",
       "help": "Yardım",
@@ -49,7 +53,12 @@
         "visibility": "Profil Görünürlüğü",
         "public": "Herkese Açık",
         "private": "Gizli",
-        "updateProfile": "Profili Güncelle"
+        "updateProfile": "Profili Güncelle",
+        "manageAccount": "Hesabı Yönet",
+        "manageAccountDesc": "Bu alandan hesabınızı kalıcı olarak silebilirsiniz. Tüm verileriniz, kurs kayıtlarınız ve bilgileriniz silinecektir. Bu işlem geri alınamaz.",
+        "deleteAccount": "Hesabımı Sil",
+        "deleteConfirm": "Hesabınızı kalıcı olarak silmek istediğinize emin misiniz?",
+        "deleteError": "Hesap silinirken bir hata oluştu."
       },
       "preferences": {
         "title": "Tercihler",
@@ -104,6 +113,8 @@
       "loginButton": "Giriş Yap",
       "noAccount": "Hesabınız yok mu?",
       "register": "Kayıt Ol",
+      "registerNow": "Hemen Kaydol",
+      "returnHome": "Ana Sayfaya Dön",
       "invalidCredentials": "Kullanıcı adı veya şifre hatalı!",
       "serverError": "Sunucuya ulaşılamıyor. Backend (C# API) çalışıyor mu?"
     },
@@ -131,7 +142,15 @@
       "serverError": "Sunucuya ulaşılamıyor."
     },
     "dashboard": {
-      "pageTitle": "Ana Sayfa — E-Kurs",
+      "alerts": {
+        "joinSuccess": "Kursa başarıyla katıldınız!",
+        "joinError": "Hata",
+        "joinErrorGeneric": "Bir hata oluştu.",
+        "leaveSuccess": "Kurstan başarıyla ayrıldınız.",
+        "leaveError": "Bir hata oluştu.",
+        "leaveErrorGeneric": "Bir hata oluştu."
+      },
+      "pageTitle": "Ana Sayfa - E-Kurs",
       "pageDesc": "Popüler kurslar ve platform özeti.",
       "unknown": "Bilinmiyor",
       "studentRole": "Öğrenci",
@@ -145,15 +164,22 @@
       "unnamedCourse": "İsimsiz Kurs",
       "general": "GENEL",
       "instructor": "Eğitmen:",
-      "studentCount": "Öğrenci"
+      "studentCount": "Öğrenci",
+      "myCourses": "Benim Kurslarım",
+      "recommendedCourses": "Önerilen Kurslar",
+      "announcements": "Duyurular",
+      "noAnnouncements": "Henüz bir duyuru bulunmuyor.",
+      "noMyCourses": "Henüz bir kursa kayıtlı değilsiniz.",
+      "noRecommendedCourses": "Önerilecek yeni kurs bulunamadı.",
+      "inProgress": "DEVAM EDİYOR"
     },
     "profile": {
       "breadcrumb": "/ profil / benim",
       "title": "Profilim",
       "roles": {
-        "student": "ÖĞRENCİ",
-        "teacher": "ÖĞRETMEN",
-        "admin": "ADMİN"
+        "student": "Öğrenci",
+        "teacher": "Öğretmen",
+        "admin": "Admin"
       },
       "defaultUser": "Kullanıcı",
       "aboutMe": "Kendim Hakkında",
@@ -163,6 +189,9 @@
       "noCourses": "Henüz kurs kaydınız görünmüyor.",
       "profileInfo": "Profil bilgileri",
       "updateProfile": "Profili güncelle",
+      "profileVisibility": "Profil Görünürlüğü",
+      "public": "Herkese Açık",
+      "hidden": "Gizli",
       "photoUrl": "Profil Fotoğrafı URL",
       "or": "veya",
       "chooseFile": "Dosya Seç",
@@ -230,13 +259,16 @@
       }
     },
     "courseModal": {
+      "enrolled": "Kayıtlısınız",
+      "joinCourse": "Kursa Katıl",
+      "leaveCourse": "Kursu Bırak",
+      "editCourse": "Düzenle",
       "unnamedCourse": "İsimsiz Kurs",
       "general": "Genel",
       "unknownInstructor": "Bilinmiyor",
       "priceLabel": "₺{{price}}",
-      "capacityFull": "{{enrolled}}/{{capacity}} Öğrenci",
-      "capacityRegistered": "{{enrolled}} Öğrenci Kayıtlı",
-      "editCourse": "Kursu Düzenle",
+      "capacityFull": "{{enrolled}}/{{capacity}} Katılımcı",
+      "capacityRegistered": "{{enrolled}} Katılımcı Kayıtlı",
       "photoLabel": "Kurs Fotoğrafı",
       "preview": "Önizleme",
       "uploadFile": "Dosya Yükle",
@@ -265,8 +297,8 @@
       "instructorProfile": "Eğitmen Profili",
       "instructorRole": "EĞİTMEN",
       "noInstructorBio": "Bu eğitmen henüz bir açıklama eklemedi.",
-      "enrolledStudents": "Kayıtlı Öğrenciler",
-      "moreStudents": "+{{count}} öğrenci daha",
+      "enrolledStudents": "Kayıtlı Katılımcılar",
+      "moreStudents": "+{{count}} katılımcı daha",
       "errors": {
         "uploadFailed": "Fotoğraf yüklenemedi. Lütfen tekrar deneyin.",
         "serverError": "Sunucuya ulaşılamıyor.",
@@ -284,7 +316,7 @@
       "cancel": "İptal",
       "editStudents": "Öğrencileri Düzenle",
       "newStudent": "Yeni Öğrenci",
-      "allStudents": "TÜM ÖĞRENCİLER",
+      "allStudents": "Tüm Öğrenciler",
       "student": "Öğrenci",
       "email": "E-Posta",
       "registrationDate": "Kayıt Tarihi",
@@ -308,7 +340,7 @@
       "aboutMe": "Kendim Hakkında",
       "save": "Kaydet",
       "saving": "Kaydediliyor...",
-      "studentRole": "ÖĞRENCİ",
+      "studentRole": "Öğrenci",
       "noBio": "Henüz bir açıklama eklenmemiş.",
       "studentNo": "No:",
       "enrolledCourses": "Kayıtlı Kurslar",
@@ -346,7 +378,7 @@
       "cancel": "İptal",
       "editTeachers": "Öğretmenleri Düzenle",
       "newTeacher": "Yeni Öğretmen",
-      "allTeachers": "TÜM ÖĞRETMENLER",
+      "allTeachers": "Tüm Öğretmenler",
       "teacher": "Öğretmen",
       "email": "E-Posta",
       "branch": "Branş",
@@ -374,7 +406,7 @@
       "aboutMe": "Kendim Hakkında",
       "save": "Kaydet",
       "saving": "Kaydediliyor...",
-      "teacherRole": "ÖĞRETMEN",
+      "teacherRole": "Öğretmen",
       "noBio": "Henüz bir açıklama eklenmemiş.",
       "addTeacherTitle": "Yeni Öğretmen Ekle",
       "firstNamePlaceholder": "Örn: Ayşe",
@@ -453,7 +485,10 @@
         "serverError": "Sunucuya ulaşılamıyor.",
         "deleteSuccess": "{{count}} kurs başarıyla silindi!",
         "deleteFailed": "Kurslar silinirken bir hata oluştu."
-      }
+      },
+      "noTaughtCourses": "Henüz verdiğiniz bir kurs bulunmuyor.",
+      "myTeachingRequests": "Ders Verme İsteklerim",
+      "noTeachingRequests": "Ders verme isteğiniz bulunmuyor."
     },
     "enrollments": {
       "breadcrumb": "/ kayıtlar",
@@ -510,13 +545,13 @@
       "newEnrollments": "Yeni Kayıtlar",
       "vsPrev30Days": "önceki 30 güne göre %{{growth}}",
       "deletedStudents": "Silinen Öğrenciler",
-      "deletedStudentsHint": "Soft-delete ile işaretlenmiş öğrenciler",
+      "deletedStudentsHint": "Silinen öğrenciler",
       "deletedTeachers": "Silinen Öğretmenler",
-      "deletedTeachersHint": "Soft-delete ile işaretlenmiş öğretmenler",
+      "deletedTeachersHint": "Silinen öğretmenler",
       "deletedCourses": "Silinen Kurslar",
-      "deletedCoursesHint": "Soft-delete ile işaretlenmiş kurslar",
+      "deletedCoursesHint": "Silinen kurslar",
       "deletedEnrollments": "Silinen Kayıtlar",
-      "deletedEnrollmentsHint": "Soft-delete ile işaretlenmiş kayıtlar",
+      "deletedEnrollmentsHint": "Silinen kayıtlar",
       "monthlyRevenue": "Aylık Gelir",
       "annualRevenueProj": "Yıllık Gelir (Projeksiyon)",
       "annualRevenueHint": "Aktif kayıtların güncel kurs fiyatına göre yıllık projeksiyonu",
@@ -539,6 +574,11 @@
         "11": "Ara"
       }
     },
+    "requests": {
+      "accepted": "Kabul Edildi",
+      "rejected": "Reddedildi",
+      "pending": "Beklemede"
+    },
     "backendErrors": {
       "emailInUse": "Bu e-posta adresi zaten kullanımda.",
       "usernameInUse": "Bu kullanıcı adı zaten alınmış.",
@@ -548,6 +588,33 @@
     },
     "validation": {
       "required": "Lütfen bu alanı doldurun."
+    },
+    "guest": {
+      "heroTitle1": "Geleceğini Şekillendirmeye",
+      "heroTitle2": "Bugün Başla",
+      "heroSubtitle": "Yüzlerce nitelikli kurs, alanında uzman eğitmenler ve sana özel öğrenme araçlarıyla potansiyelini keşfet. Sınırları aş, hayallerine ulaş.",
+      "searchPlaceholder": "Hangi alanda kendini geliştirmek istersin?",
+      "searchButton": "Ara",
+      "searching": "Aranıyor...",
+      "popularCourses": "En Popüler Kurslar",
+      "popularCoursesDesc": "Öğrencilerimiz tarafından en çok ilgi gören ve yüksek puan alan popüler kurslarımızı keşfedin.",
+      "viewAllCourses": "Tüm Kursları Gör",
+      "searchResults": "Arama Sonuçları",
+      "clearSearch": "Aramayı Temizle",
+      "ctaTitle": "Öğrenme Yolculuğuna Hemen Başla",
+      "ctaDesc": "Bugün platformumuza katıl, hayallerindeki kariyere giden yolda ilk adımı at. Ücretsiz kayıt olabilir ve dilediğin kursu seçebilirsin.",
+      "ctaButton": "Hemen Ücretsiz Kayıt Ol",
+      "footerTitle": "E-Kurs Platformu",
+      "footerDesc": "E-Kurs Tüm Hakları Saklıdır.",
+      "instructor": "Eğitmen",
+      "review": "İncele",
+      "stats": {
+        "students": "Kayıtlı Öğrenci",
+        "courses": "Aktif Kurs",
+        "teachers": "Uzman Eğitmen"
+      },
+      "exploreNew": "Yeni kurslar keşfederek öğrenmeye başlayın.",
+      "exploreCourses": "Kursları İncele"
     }
   }
 }

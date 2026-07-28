@@ -13,7 +13,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import "../i18n"; // Import i18n setup
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { AppSidebar } from "../components/AppSidebar";
+import { Toaster } from "sonner";
 
 function NotFoundComponent() {
   return (
@@ -135,12 +135,8 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background font-display text-foreground flex w-full">
-        <AppSidebar />
-        <main className="flex-1 flex flex-col min-w-0">
-          <Outlet />
-        </main>
-      </div>
+      <Outlet />
+      <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );
 }

@@ -60,6 +60,7 @@ function CoursesPage() {
   // KURS DETAY MODALI İÇİN STATE'LER (düzenleme formu artık CourseDetailModal içinde)
   const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
   const [dbEnrollments, setDbEnrollments] = useState<EnrollmentDto[]>([]);
+  const [myCourses, setMyCourses] = useState<EnrollmentDto[]>([]);
   // Kurs düzenleme formundaki öğretmen seçim dropdown'ı ve "Eğitmen Profili" (foto+bio)
   // eşleştirmesi için /api/teachers'tan çekilen liste.
   const [dbTeachers, setDbTeachers] = useState<TeacherLiteDto[]>([]);
@@ -151,9 +152,19 @@ function CoursesPage() {
       setCategories(cats);
     };
 
+    const fetchMyCourses = async () => {
+      try {
+        const res = await fetch("http://localhost:5157/api/enrollments/my-courses", { headers });
+        if (res.ok) setMyCourses(await res.json());
+      } catch (error) {
+        console.error("Öğrenci kursları yüklenirken hata:", error);
+      }
+    };
+
     fetchEnrollments();
     fetchTeachers();
     fetchCats();
+    fetchMyCourses();
   }, []);
 
   const handleCloseDetailModal = () => {
@@ -239,6 +250,57 @@ function CoursesPage() {
       }
     } catch (error) {
       showToast(t("courses.errors.serverError"), "error");
+    }
+  };
+
+  const handleTeachCourseRequest = async (e: React.MouseEvent, courseId: number | string) => {
+    e.stopPropagation();
+    try {
+      const token = localStorage.getItem("jwt_token");
+      const response = await fetch("http://localhost:5157/api/teachingrequests", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ CourseId: courseId }),
+      });
+
+      if (response.ok) {
+        showToast(t("requests.sentSuccess", "Ders verme isteği gönderildi."), "success");
+      } else {
+        const err = await response.text();
+        showToast(err || t("requests.sentFailed", "İstek gönderilemedi."), "error");
+      }
+    } catch (error) {
+      showToast(t("courses.errors.serverError", "Sunucuya bağlanılamadı."), "error");
+    }
+  };
+
+  const handleJoinCourse = async (courseId: number | string) => {
+    try {
+      const token = localStorage.getItem("jwt_token");
+      const response = await fetch(`http://localhost:5157/api/enrollments/join/${courseId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        showToast(t("dashboard.alerts.joinSuccess", "Kursa başarıyla katıldınız."), "success");
+        // Update myCourses
+        const myRes = await fetch("http://localhost:5157/api/enrollments/my-courses", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (myRes.ok) setMyCourses(await myRes.json());
+      } else {
+        const err = await response.text();
+        showToast(err || t("dashboard.alerts.joinError", "Kursa katılınamadı."), "error");
+      }
+    } catch (error) {
+      showToast(t("courses.errors.serverError", "Sunucuya bağlanılamadı."), "error");
     }
   };
 
@@ -412,6 +474,28 @@ function CoursesPage() {
                           "linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(0,0,0,0.06) 100%)",
                       }}
                     />
+                    {(() => {
+                      const isStudent =
+                        currentUser.role.toLowerCase() === "user" ||
+                        currentUser.role.toLowerCase() === "student" ||
+                        currentUser.role === "Öğrenci" ||
+                        currentUser.role === t("courses.student");
+                      if (isStudent) {
+                        const isEnrolled = myCourses.some((enc) => {
+                          const cId =
+                            enc.courseId ?? enc.CourseId ?? enc.course?.id ?? enc.Course?.Id;
+                          return String(cId) === String(currentId);
+                        });
+                        if (isEnrolled) {
+                          return (
+                            <div className="absolute top-2 right-2 bg-black text-white text-[10px] px-2 py-1 rounded-sm font-bold uppercase z-10">
+                              {t("dashboard.inProgress", "Devam Ediyor")}
+                            </div>
+                          );
+                        }
+                      }
+                      return null;
+                    })()}
                   </div>
                   <div className="p-5 flex-1 flex flex-col">
                     <div className="flex justify-between items-start mb-3">
@@ -429,6 +513,14 @@ function CoursesPage() {
                     </h4>
                     <div className="flex justify-between items-center text-xs text-muted-foreground mt-auto">
                       <span>{t("courses.instructorPrefix", { name: instructor })}</span>
+                      {currentUser.role === "Eğitmen" && (
+                        <button
+                          onClick={(e) => handleTeachCourseRequest(e, currentId as string | number)}
+                          className="bg-primary/10 text-primary px-3 py-1 rounded hover:bg-primary/20 transition-colors font-medium"
+                        >
+                          Ders Ver
+                        </button>
+                      )}
                     </div>
 
                     {/* SADECE DÜZENLEME MODUNDAYKEN GÖRÜNECEK ONAY KUTUSU (Sil Butonu Yerine) */}
@@ -463,6 +555,17 @@ function CoursesPage() {
           teachers={dbTeachers}
           categories={categories}
           onSaved={handleCourseSaved}
+          isStudent={
+            currentUser.role.toLowerCase() === "user" ||
+            currentUser.role.toLowerCase() === "student" ||
+            currentUser.role === "Öğrenci" ||
+            currentUser.role === t("courses.student")
+          }
+          isEnrolled={myCourses.some(
+            (e) =>
+              String(e.courseId || e.CourseId) === String(selectedCourse.id || selectedCourse.Id),
+          )}
+          onJoin={() => handleJoinCourse(selectedCourse.id || selectedCourse.Id || "")}
         />
       )}
 

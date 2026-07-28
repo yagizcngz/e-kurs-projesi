@@ -148,7 +148,7 @@ namespace EdTechApi.API.Controllers
                         FirstName = request.FirstName,
                         LastName = request.LastName,
                         Email = request.Email, 
-                        Date = DateTime.Now,
+                        CreatedAt = DateTime.Now,
                         UserId = newUser.Id 
                     };
 
@@ -167,7 +167,7 @@ namespace EdTechApi.API.Controllers
                          FirstName = request.FirstName,
                          LastName = request.LastName,
                          Email = request.Email,
-                         Date = DateTime.Now,
+                         CreatedAt = DateTime.Now,
                          UserId = newUser.Id
                      };
                      await _context.Teachers.AddAsync(newTeacher);

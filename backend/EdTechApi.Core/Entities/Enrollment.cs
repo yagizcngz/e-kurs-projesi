@@ -7,6 +7,7 @@ namespace EdTechApi.Core.Entities
         public int CourseId { get; set; }
         public decimal Grade { get; set; }
         public DateTime EnrollmentDate { get; set; } = DateTime.UtcNow;
+        public string Status { get; set; } = "Devam Ediyor";
 
         public Student Student { get; set; } = null!;
         public Course Course { get; set; } = null!;

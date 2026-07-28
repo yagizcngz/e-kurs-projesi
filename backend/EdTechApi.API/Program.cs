@@ -31,8 +31,9 @@ builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<ITeacherService, TeacherService>();
+builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
 // Arka plan görevini sisteme dahil ediyoruz
-builder.Services.AddHostedService<EdTechApi.Business.BackgroundJobs.SoftDeleteCleanupService>();
+// builder.Services.AddHostedService<EdTechApi.Business.BackgroundJobs.SoftDeleteCleanupService>();
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<StudentValidator>();
 

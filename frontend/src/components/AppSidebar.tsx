@@ -10,12 +10,12 @@ import {
   ChevronUp,
   User,
   Settings,
-  Sun,
-  Moon,
   HelpCircle,
   GraduationCap,
   UserCog,
   LogOut,
+  Bell,
+  CheckCircle,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -35,11 +35,13 @@ const parseJwt = (token: string) => {
   }
 };
 
-const translateRole = (role: string) => {
+import type { TFunction } from "i18next";
+
+const translateRole = (role: string, t: TFunction) => {
   const r = String(role).toLowerCase();
-  if (r === "user") return "Öğrenci";
-  if (r === "teacher") return "Öğretmen";
-  if (r === "admin") return "Admin";
+  if (r === "user" || r === "student") return t("profile.roles.student");
+  if (r === "teacher") return t("profile.roles.teacher");
+  if (r === "admin") return t("profile.roles.admin");
   return role;
 };
 
@@ -51,13 +53,17 @@ interface ProfileMeDto {
 }
 
 // Tüm menü listesi (Henüz filtrelenmemiş hali)
-const getMenuItems = (t: any) => [
-  { title: t("sidebar.home"), url: "/", icon: LayoutDashboard },
+const getMenuItems = (t: TFunction) => [
+  { title: t("sidebar.home"), url: "/dashboard", icon: LayoutDashboard },
+  { title: t("sidebar.myCourses"), url: "/kurslarim", icon: GraduationCap },
+  { title: t("sidebar.taughtCourses"), url: "/verdigim-kurslar", icon: BookOpen },
   { title: t("sidebar.students"), url: "/ogrenciler", icon: Users },
   { title: t("sidebar.teachers"), url: "/ogretmenler", icon: UserCog },
   { title: t("sidebar.courses"), url: "/kurslar", icon: BookOpen },
+  { title: t("sidebar.pendingRequests"), url: "/istekler", icon: CheckCircle },
   { title: t("sidebar.enrollments"), url: "/kayitlar", icon: ClipboardList },
   { title: t("sidebar.reports"), url: "/raporlar", icon: BarChart3 },
+  { title: t("sidebar.announcements"), url: "/duyurular", icon: Bell },
 ];
 
 export function AppSidebar() {
@@ -65,17 +71,18 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isDark, setIsDark] = useState(false);
 
   const [currentUser, setCurrentUser] = useState<{
     name: string;
     role: string;
     initials: string;
     photo?: string;
+    rawRole?: string;
   }>({
     name: "Kullanıcı",
-    role: "Öğrenci",
+    role: t("profile.roles.student"),
     initials: "K",
+    rawRole: "user",
   });
 
   const lastTokenRef = useRef<string | null>(null);
@@ -91,7 +98,8 @@ export function AppSidebar() {
     lastTokenRef.current = token;
 
     let currentName = storedUsername || "Kullanıcı";
-    let currentRole = "Öğrenci";
+    let currentRole = t("profile.roles.student");
+    let currentRawRole = "user";
 
     if (token) {
       const payload = parseJwt(token);
@@ -101,7 +109,8 @@ export function AppSidebar() {
           payload.role ||
           "";
 
-        currentRole = translateRole(rawRole || "user");
+        currentRawRole = rawRole || "user";
+        currentRole = translateRole(rawRole || "user", t);
 
         if (!storedUsername) {
           currentName = payload.name || payload.unique_name || payload.sub || currentName;
@@ -135,6 +144,7 @@ export function AppSidebar() {
               role: currentRole,
               initials,
               photo: photo || undefined,
+              rawRole: currentRawRole,
             });
           }
         } catch (err) {
@@ -145,15 +155,25 @@ export function AppSidebar() {
             .map((n) => n[0])
             .join("")
             .toUpperCase();
-          setCurrentUser({ name: currentName, role: currentRole, initials });
+          setCurrentUser({
+            name: currentName,
+            role: currentRole,
+            initials,
+            rawRole: currentRawRole,
+          });
         }
       };
 
       loadProfileData();
     } else {
-      setCurrentUser({ name: "Kullanıcı", role: "Öğrenci", initials: "K" });
+      setCurrentUser({
+        name: "Kullanıcı",
+        role: t("profile.roles.student"),
+        initials: "K",
+        rawRole: "user",
+      });
     }
-  }, [location.pathname]);
+  }, [location.pathname, t]);
 
   useEffect(() => {
     const onProfileUpdated = (e: Event) => {
@@ -170,30 +190,11 @@ export function AppSidebar() {
     return () => window.removeEventListener("profile-updated", onProfileUpdated as EventListener);
   }, []);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    let dark: boolean;
-    if (saved === "dark") dark = true;
-    else if (saved === "light") dark = false;
-    else dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-    document.documentElement.classList.toggle("dark", dark);
-    setIsDark(dark);
-  }, []);
-
-  const toggleTheme = () => {
-    const root = document.documentElement;
-    const next = !root.classList.contains("dark");
-    root.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-    setIsDark(next);
-  };
-
   const handleLogout = () => {
     localStorage.removeItem("jwt_token");
     localStorage.removeItem("username");
     localStorage.removeItem("user_profile");
-    navigate({ to: "/login" });
+    navigate({ to: "/" });
   };
 
   const menuLinks = [
@@ -204,8 +205,29 @@ export function AppSidebar() {
 
   // YENİ EKLENEN KISIM: Rol tabanlı menü filtreleme
   const visibleMenuItems = getMenuItems(t).filter((item) => {
-    if (currentUser.role === "Admin") return true; // Admin her yeri görür
-    return item.url === "/" || item.url === "/kurslar"; // Diğerleri sadece bu ikisini görür
+    const role = currentUser.rawRole?.toLowerCase();
+
+    // Everyone sees Home, Announcements, and Courses
+    if (item.url === "/dashboard" || item.url === "/duyurular" || item.url === "/kurslar") {
+      return true;
+    }
+
+    if (role === "admin" || role === "superadmin") {
+      // Admins don't teach courses usually, but they can see everything else
+      if (item.url === "/verdigim-kurslar") return false;
+      if (item.url === "/kurslarim") return false;
+      return true;
+    }
+
+    if (role === "teacher") {
+      if (item.url === "/verdigim-kurslar") return true;
+      if (item.url === "/kurslarim") return true;
+    }
+
+    // Default for user/student or unrecognized role
+    if (item.url === "/kurslarim") return true;
+
+    return false;
   });
 
   return (
@@ -254,7 +276,9 @@ export function AppSidebar() {
               )}
               <div className="flex-1 text-left overflow-hidden">
                 <p className="text-sm font-medium truncate">{currentUser.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{currentUser.role}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {translateRole(currentUser.rawRole || "user", t)}
+                </p>
               </div>
               <ChevronUp
                 className={`h-4 w-4 transition-transform ${menuOpen ? "" : "rotate-180"}`}
@@ -281,13 +305,6 @@ export function AppSidebar() {
                 </Link>
               );
             })}
-            <button
-              onClick={toggleTheme}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-sidebar-foreground transition-all hover:bg-neutral-900/5 hover:text-neutral-900 dark:hover:bg-white/5 dark:hover:text-white"
-            >
-              {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-              {isDark ? t("sidebar.themeDark") : t("sidebar.themeLight")}
-            </button>
             <div className="my-1 h-px bg-border" />
             <button
               onClick={handleLogout}

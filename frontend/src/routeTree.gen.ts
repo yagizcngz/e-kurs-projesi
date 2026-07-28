@@ -13,13 +13,18 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedVerdigimKurslarRouteImport } from './routes/_authenticated.verdigim-kurslar'
 import { Route as AuthenticatedRaporlarRouteImport } from './routes/_authenticated.raporlar'
 import { Route as AuthenticatedProfilRouteImport } from './routes/_authenticated.profil'
 import { Route as AuthenticatedOgretmenlerRouteImport } from './routes/_authenticated.ogretmenler'
 import { Route as AuthenticatedOgrencilerRouteImport } from './routes/_authenticated.ogrenciler'
+import { Route as AuthenticatedKurslarimRouteImport } from './routes/_authenticated.kurslarim'
 import { Route as AuthenticatedKurslarRouteImport } from './routes/_authenticated.kurslar'
 import { Route as AuthenticatedKayitlarRouteImport } from './routes/_authenticated.kayitlar'
+import { Route as AuthenticatedIsteklerRouteImport } from './routes/_authenticated.istekler'
+import { Route as AuthenticatedDuyurularRouteImport } from './routes/_authenticated.duyurular'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedAyarlarRouteImport } from './routes/_authenticated.ayarlar'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -41,11 +46,17 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AuthenticatedRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedVerdigimKurslarRoute =
+  AuthenticatedVerdigimKurslarRouteImport.update({
+    id: '/verdigim-kurslar',
+    path: '/verdigim-kurslar',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedRaporlarRoute = AuthenticatedRaporlarRouteImport.update({
   id: '/raporlar',
   path: '/raporlar',
@@ -67,6 +78,11 @@ const AuthenticatedOgrencilerRoute = AuthenticatedOgrencilerRouteImport.update({
   path: '/ogrenciler',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedKurslarimRoute = AuthenticatedKurslarimRouteImport.update({
+  id: '/kurslarim',
+  path: '/kurslarim',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedKurslarRoute = AuthenticatedKurslarRouteImport.update({
   id: '/kurslar',
   path: '/kurslar',
@@ -77,6 +93,21 @@ const AuthenticatedKayitlarRoute = AuthenticatedKayitlarRouteImport.update({
   path: '/kayitlar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedIsteklerRoute = AuthenticatedIsteklerRouteImport.update({
+  id: '/istekler',
+  path: '/istekler',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDuyurularRoute = AuthenticatedDuyurularRouteImport.update({
+  id: '/duyurular',
+  path: '/duyurular',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAyarlarRoute = AuthenticatedAyarlarRouteImport.update({
   id: '/ayarlar',
   path: '/ayarlar',
@@ -84,45 +115,60 @@ const AuthenticatedAyarlarRoute = AuthenticatedAyarlarRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedIndexRoute
+  '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/ayarlar': typeof AuthenticatedAyarlarRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/duyurular': typeof AuthenticatedDuyurularRoute
+  '/istekler': typeof AuthenticatedIsteklerRoute
   '/kayitlar': typeof AuthenticatedKayitlarRoute
   '/kurslar': typeof AuthenticatedKurslarRoute
+  '/kurslarim': typeof AuthenticatedKurslarimRoute
   '/ogrenciler': typeof AuthenticatedOgrencilerRoute
   '/ogretmenler': typeof AuthenticatedOgretmenlerRoute
   '/profil': typeof AuthenticatedProfilRoute
   '/raporlar': typeof AuthenticatedRaporlarRoute
+  '/verdigim-kurslar': typeof AuthenticatedVerdigimKurslarRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/ayarlar': typeof AuthenticatedAyarlarRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/duyurular': typeof AuthenticatedDuyurularRoute
+  '/istekler': typeof AuthenticatedIsteklerRoute
   '/kayitlar': typeof AuthenticatedKayitlarRoute
   '/kurslar': typeof AuthenticatedKurslarRoute
+  '/kurslarim': typeof AuthenticatedKurslarimRoute
   '/ogrenciler': typeof AuthenticatedOgrencilerRoute
   '/ogretmenler': typeof AuthenticatedOgretmenlerRoute
   '/profil': typeof AuthenticatedProfilRoute
   '/raporlar': typeof AuthenticatedRaporlarRoute
-  '/': typeof AuthenticatedIndexRoute
+  '/verdigim-kurslar': typeof AuthenticatedVerdigimKurslarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/ayarlar': typeof AuthenticatedAyarlarRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/duyurular': typeof AuthenticatedDuyurularRoute
+  '/_authenticated/istekler': typeof AuthenticatedIsteklerRoute
   '/_authenticated/kayitlar': typeof AuthenticatedKayitlarRoute
   '/_authenticated/kurslar': typeof AuthenticatedKurslarRoute
+  '/_authenticated/kurslarim': typeof AuthenticatedKurslarimRoute
   '/_authenticated/ogrenciler': typeof AuthenticatedOgrencilerRoute
   '/_authenticated/ogretmenler': typeof AuthenticatedOgretmenlerRoute
   '/_authenticated/profil': typeof AuthenticatedProfilRoute
   '/_authenticated/raporlar': typeof AuthenticatedRaporlarRoute
-  '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/verdigim-kurslar': typeof AuthenticatedVerdigimKurslarRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -132,42 +178,58 @@ export interface FileRouteTypes {
     | '/register'
     | '/sitemap.xml'
     | '/ayarlar'
+    | '/dashboard'
+    | '/duyurular'
+    | '/istekler'
     | '/kayitlar'
     | '/kurslar'
+    | '/kurslarim'
     | '/ogrenciler'
     | '/ogretmenler'
     | '/profil'
     | '/raporlar'
+    | '/verdigim-kurslar'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/login'
     | '/register'
     | '/sitemap.xml'
     | '/ayarlar'
+    | '/dashboard'
+    | '/duyurular'
+    | '/istekler'
     | '/kayitlar'
     | '/kurslar'
+    | '/kurslarim'
     | '/ogrenciler'
     | '/ogretmenler'
     | '/profil'
     | '/raporlar'
-    | '/'
+    | '/verdigim-kurslar'
   id:
     | '__root__'
+    | '/'
     | '/_authenticated'
     | '/login'
     | '/register'
     | '/sitemap.xml'
     | '/_authenticated/ayarlar'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/duyurular'
+    | '/_authenticated/istekler'
     | '/_authenticated/kayitlar'
     | '/_authenticated/kurslar'
+    | '/_authenticated/kurslarim'
     | '/_authenticated/ogrenciler'
     | '/_authenticated/ogretmenler'
     | '/_authenticated/profil'
     | '/_authenticated/raporlar'
-    | '/_authenticated/'
+    | '/_authenticated/verdigim-kurslar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
@@ -204,11 +266,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/': {
-      id: '/_authenticated/'
+    '/': {
+      id: '/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/verdigim-kurslar': {
+      id: '/_authenticated/verdigim-kurslar'
+      path: '/verdigim-kurslar'
+      fullPath: '/verdigim-kurslar'
+      preLoaderRoute: typeof AuthenticatedVerdigimKurslarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/raporlar': {
@@ -239,6 +308,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOgrencilerRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/kurslarim': {
+      id: '/_authenticated/kurslarim'
+      path: '/kurslarim'
+      fullPath: '/kurslarim'
+      preLoaderRoute: typeof AuthenticatedKurslarimRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/kurslar': {
       id: '/_authenticated/kurslar'
       path: '/kurslar'
@@ -253,6 +329,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedKayitlarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/istekler': {
+      id: '/_authenticated/istekler'
+      path: '/istekler'
+      fullPath: '/istekler'
+      preLoaderRoute: typeof AuthenticatedIsteklerRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/duyurular': {
+      id: '/_authenticated/duyurular'
+      path: '/duyurular'
+      fullPath: '/duyurular'
+      preLoaderRoute: typeof AuthenticatedDuyurularRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/ayarlar': {
       id: '/_authenticated/ayarlar'
       path: '/ayarlar'
@@ -265,24 +362,32 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAyarlarRoute: typeof AuthenticatedAyarlarRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDuyurularRoute: typeof AuthenticatedDuyurularRoute
+  AuthenticatedIsteklerRoute: typeof AuthenticatedIsteklerRoute
   AuthenticatedKayitlarRoute: typeof AuthenticatedKayitlarRoute
   AuthenticatedKurslarRoute: typeof AuthenticatedKurslarRoute
+  AuthenticatedKurslarimRoute: typeof AuthenticatedKurslarimRoute
   AuthenticatedOgrencilerRoute: typeof AuthenticatedOgrencilerRoute
   AuthenticatedOgretmenlerRoute: typeof AuthenticatedOgretmenlerRoute
   AuthenticatedProfilRoute: typeof AuthenticatedProfilRoute
   AuthenticatedRaporlarRoute: typeof AuthenticatedRaporlarRoute
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedVerdigimKurslarRoute: typeof AuthenticatedVerdigimKurslarRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAyarlarRoute: AuthenticatedAyarlarRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDuyurularRoute: AuthenticatedDuyurularRoute,
+  AuthenticatedIsteklerRoute: AuthenticatedIsteklerRoute,
   AuthenticatedKayitlarRoute: AuthenticatedKayitlarRoute,
   AuthenticatedKurslarRoute: AuthenticatedKurslarRoute,
+  AuthenticatedKurslarimRoute: AuthenticatedKurslarimRoute,
   AuthenticatedOgrencilerRoute: AuthenticatedOgrencilerRoute,
   AuthenticatedOgretmenlerRoute: AuthenticatedOgretmenlerRoute,
   AuthenticatedProfilRoute: AuthenticatedProfilRoute,
   AuthenticatedRaporlarRoute: AuthenticatedRaporlarRoute,
-  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedVerdigimKurslarRoute: AuthenticatedVerdigimKurslarRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -290,6 +395,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,

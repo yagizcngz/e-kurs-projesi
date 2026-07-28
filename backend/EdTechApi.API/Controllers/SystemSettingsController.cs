@@ -79,7 +79,14 @@ namespace EdTechApi.API.Controllers
             var defaults = new List<SystemSetting>
             {
                 new SystemSetting { SettingKey = "ADMIN_CODE", SettingValue = "88888", Description = "Admin Registration Code" },
-                new SystemSetting { SettingKey = "TEACHER_CODE", SettingValue = "12345", Description = "Teacher Registration Code" }
+                new SystemSetting { SettingKey = "TEACHER_CODE", SettingValue = "12345", Description = "Teacher Registration Code" },
+                new SystemSetting { SettingKey = "ENABLE_GUEST_HOME_FEATURED", SettingValue = "true", Description = "Misafir ana sayfasında öne çıkan kursları göster" },
+                new SystemSetting { SettingKey = "ENABLE_GUEST_HOME_POPULAR", SettingValue = "true", Description = "Misafir ana sayfasında en popüler kursları göster" },
+                new SystemSetting { SettingKey = "ENABLE_STUDENT_HOME_RECOMMENDATIONS", SettingValue = "true", Description = "Öğrenci ana sayfasında önerilen kursları göster" },
+                new SystemSetting { SettingKey = "ENABLE_STUDENT_HOME_ANNOUNCEMENTS", SettingValue = "true", Description = "Öğrenci ana sayfasında duyuruları göster" },
+                new SystemSetting { SettingKey = "ENABLE_TEACHER_HOME_NOTIFICATIONS", SettingValue = "true", Description = "Öğretmen ana sayfasında yeni kayıt bildirimlerini göster" },
+                new SystemSetting { SettingKey = "ENABLE_ADMIN_HOME_CAPACITY_ALERTS", SettingValue = "true", Description = "Admin dashboard'unda kapasite uyarılarını göster" },
+                new SystemSetting { SettingKey = "ENABLE_ADMIN_HOME_ACTIVITY_LOG", SettingValue = "true", Description = "Admin dashboard'unda aktivite logunu göster" }
             };
 
             foreach (var def in defaults)

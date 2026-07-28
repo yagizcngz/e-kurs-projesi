@@ -11,6 +11,9 @@ namespace EdTechApi.Core.Entities
         public string Instructor { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty; // Kurs içeriği / açıklaması
+        
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public bool IsFeatured { get; set; } = false;
 
         // --- YENİ EKLENEN SÜTUN ---
         // Kurs kapak fotoğrafının göreli URL'i (örn. /uploads/course-images/xxx.png).

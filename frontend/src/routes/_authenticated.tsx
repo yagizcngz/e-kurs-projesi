@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { AppSidebar } from "../components/AppSidebar";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -85,5 +86,12 @@ function AuthenticatedLayout() {
     );
   }
 
-  return <Outlet />;
+  return (
+    <div className="min-h-screen bg-background font-display text-foreground flex w-full">
+      <AppSidebar />
+      <main className="flex-1 flex flex-col min-w-0">
+        <Outlet />
+      </main>
+    </div>
+  );
 }

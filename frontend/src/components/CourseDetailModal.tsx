@@ -8,7 +8,9 @@ import {
   Edit2,
   Upload,
   Link2,
+  MoreVertical,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -32,6 +34,10 @@ interface CourseDetailModalProps {
   teachers: TeacherLiteDto[];
   categories: string[];
   onSaved: (updated: CourseData) => void;
+  isStudent?: boolean;
+  isEnrolled?: boolean;
+  onJoin?: () => void;
+  onLeave?: () => void;
 }
 
 export function CourseDetailModal({
@@ -42,6 +48,10 @@ export function CourseDetailModal({
   teachers,
   categories,
   onSaved,
+  isStudent = false,
+  isEnrolled = false,
+  onJoin,
+  onLeave,
 }: CourseDetailModalProps) {
   const { t, i18n } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
@@ -88,6 +98,70 @@ export function CourseDetailModal({
   const description = course.description || course.Description;
 
   const imageUrl = getCourseImage(course, 0);
+
+  const [currentUserRole, setCurrentUserRole] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | number>("");
+
+  useEffect(() => {
+    const token = localStorage.getItem("jwt_token");
+    if (token) {
+      try {
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join(""),
+        );
+        const payload = JSON.parse(jsonPayload);
+        const r = (
+          payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
+          payload.role ||
+          ""
+        ).toLowerCase();
+        setCurrentUserRole(r);
+        const id =
+          payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] ||
+          payload.sub ||
+          "";
+        setCurrentUserId(id);
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, []);
+
+  const isTeacherRole = currentUserRole === "teacher" || currentUserRole === "eğitmen";
+  const isAdminRole = currentUserRole === "admin" || currentUserRole === "superadmin";
+
+  const myTeacherProfile = teachers.find(
+    (t) => String(t.userId ?? t.UserId) === String(currentUserId),
+  );
+  const myTeacherId = myTeacherProfile ? (myTeacherProfile.id ?? myTeacherProfile.Id) : null;
+
+  const handleTeachRequest = async () => {
+    try {
+      const token = localStorage.getItem("jwt_token");
+      const res = await fetch(`${API_BASE}/api/teachingrequests`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ CourseId: courseId }),
+      });
+      if (res.ok) {
+        showStatusToast("success", t("requests.sentSuccess", "Ders verme isteği gönderildi."));
+      } else {
+        const errorText = await res.text();
+        showStatusToast("error", errorText || "İstek gönderilemedi.");
+      }
+    } catch (err) {
+      showStatusToast("error", "Sunucu hatası.");
+    }
+  };
+
   const courseEnrollments = getCourseEnrollments(course, enrollments);
 
   // Eğitmen profili (fotoğraf + bio): önce TeacherId ile kesin eşleşme deneniyor.
@@ -315,7 +389,7 @@ export function CourseDetailModal({
           <X className="size-5" />
         </button>
 
-        <div className="w-full aspect-video relative overflow-hidden bg-neutral-100">
+        <div className="w-full aspect-video relative overflow-hidden bg-muted">
           <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
           <div
             className="absolute inset-0"
@@ -345,15 +419,67 @@ export function CourseDetailModal({
               </div>
             </div>
 
-            {canManage && !isEditing && (
-              <button
-                onClick={handleStartEdit}
-                className="flex items-center gap-1.5 text-xs font-bold border border-border rounded-md px-3 py-1.5 hover:bg-foreground/5 transition-colors"
-              >
-                <Edit2 className="size-3.5" />
-                {t("courseModal.editCourse")}
-              </button>
-            )}
+            {(isAdminRole || (isTeacherRole && String(teacherId) === String(myTeacherId))) &&
+              !isEditing && (
+                <button
+                  onClick={handleStartEdit}
+                  className="flex items-center gap-1.5 text-xs font-bold border border-border rounded-md px-3 py-1.5 hover:bg-foreground/5 transition-colors"
+                >
+                  <Edit2 className="size-3.5" />
+                  {t("courseModal.editCourse")}
+                </button>
+              )}
+
+            {isTeacherRole &&
+              String(teacherId) !== String(myTeacherId) &&
+              instructor !== getTeacherFullName(myTeacherProfile || {}) &&
+              !isEditing && (
+                <button
+                  onClick={handleTeachRequest}
+                  className="flex items-center gap-1.5 text-xs font-bold border border-primary text-primary rounded-md px-3 py-1.5 hover:bg-primary/5 transition-colors"
+                >
+                  {t("courseModal.teachCourse", "Ders Ver")}
+                </button>
+              )}
+
+            {isStudent &&
+              (isEnrolled ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold border border-accent text-accent rounded-md px-3 py-1.5 bg-accent/5">
+                    <CheckCircle2 className="size-3.5" />
+                    {t("courseModal.enrolled", "Kayıtlısınız")}
+                  </div>
+                  {onLeave && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="flex items-center justify-center size-8 border border-border rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+                            <MoreVertical className="size-4 text-muted-foreground" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-40 p-2 z-300" align="end">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onLeave();
+                            }}
+                            className="flex w-full items-center gap-1.5 text-xs font-bold text-destructive rounded-md px-3 py-2 hover:bg-destructive/10 transition-colors"
+                          >
+                            {t("courseModal.leaveCourse", "Kursu Bırak")}
+                          </button>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={onJoin}
+                  className="flex items-center gap-1.5 text-xs font-bold bg-accent text-white rounded-md px-4 py-1.5 hover:bg-accent/90 transition-colors"
+                >
+                  {t("courseModal.joinCourse", "Kursa Katıl")}
+                </button>
+              ))}
           </div>
 
           {isEditing ? (
@@ -361,7 +487,7 @@ export function CourseDetailModal({
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">{t("courseModal.photoLabel")}</label>
                 <div className="flex gap-4">
-                  <div className="size-20 rounded-md overflow-hidden bg-neutral-100 border border-border shrink-0">
+                  <div className="size-20 rounded-md overflow-hidden bg-muted border border-border shrink-0">
                     <img
                       src={editPreviewSrc}
                       alt={t("courseModal.preview")}

@@ -20,7 +20,7 @@ export const translateBackendError = (errText: string, t: TFunction): string => 
   if (lower.includes("gerekli") || lower.includes("zorunlu")) {
     return t("backendErrors.fieldsRequired", "Please fill in all required fields.");
   }
-  
+
   // Return the original text if no match found
   return errText;
 };

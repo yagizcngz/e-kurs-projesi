@@ -326,12 +326,7 @@ function SettingsPage() {
         >
           {t("settings.tabs.account")}
         </button>
-        <button
-          onClick={() => setActiveTab("profile")}
-          className={`pb-4 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === "profile" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          {t("settings.tabs.profile")}
-        </button>
+
         <button
           onClick={() => setActiveTab("preferences")}
           className={`pb-4 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === "preferences" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"}`}
@@ -342,7 +337,11 @@ function SettingsPage() {
           <>
             <button
               onClick={() => setActiveTab("system")}
-              className={`pb-4 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === "system" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"}`}
+              className={`pb-4 text-sm font-semibold transition-colors whitespace-nowrap ${
+                activeTab === "system"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:border-border"
+              }`}
             >
               {t("settings.tabs.system")}
             </button>
@@ -448,131 +447,69 @@ function SettingsPage() {
                 </button>
               </form>
             </div>
-          </div>
-        )}
+            <div className="rounded-xl border border-red-200 bg-card text-card-foreground shadow p-6 mt-6 max-w-2xl">
+              <h3 className="font-bold text-lg text-red-600 flex items-center gap-2 mb-2">
+                <AlertCircle className="h-5 w-5" /> {t("settings.profile.manageAccount")}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                {t("settings.profile.manageAccountDesc")}
+              </p>
 
-        {activeTab === "profile" && (
-          <div className="rounded-xl border bg-card text-card-foreground shadow p-6 max-w-2xl">
-            <h3 className="font-bold text-lg mb-2">{t("settings.profile.title")}</h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              {t("settings.profile.description")}
-            </p>
+              <div className="space-y-5">
+                <button
+                  onClick={async () => {
+                    if (window.confirm(t("settings.profile.deleteConfirm"))) {
+                      const token =
+                        localStorage.getItem("jwt_token") || localStorage.getItem("token");
+                      if (token) {
+                        const payload = parseJwt(token);
+                        const userId = payload?.nameid || payload?.sub || payload?.id;
+                        const userRole =
+                          payload?.role ||
+                          payload?.[
+                            "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+                          ] ||
+                          "user";
 
-            <form onSubmit={handleUpdateProfile} className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">{t("settings.profile.firstName")}</label>
-                  <input
-                    type="text"
-                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-primary transition-colors"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">{t("settings.profile.lastName")}</label>
-                  <input
-                    type="text"
-                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-primary transition-colors"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                  />
-                </div>
+                        if (userId) {
+                          try {
+                            const isTeacher = userRole.toString().toLowerCase() === "teacher";
+                            const endpoint = isTeacher
+                              ? `http://localhost:5157/api/Teachers/${userId}`
+                              : `http://localhost:5157/api/Students/${userId}`;
+
+                            const res = await fetch(endpoint, {
+                              method: "DELETE",
+                              headers: { Authorization: `Bearer ${token}` },
+                            });
+
+                            if (res.ok) {
+                              localStorage.removeItem("jwt_token");
+                              localStorage.removeItem("token");
+                              window.location.href = "/";
+                            } else {
+                              alert(t("settings.profile.deleteError"));
+                            }
+                          } catch (e) {
+                            console.error(e);
+                            alert(t("settings.profile.deleteError"));
+                          }
+                        }
+                      }
+                    }
+                  }}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-md transition-colors flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t("settings.profile.deleteAccount")}
+                </button>
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">
-                  {t("settings.profile.profilePicture")}
-                </label>
-                <input
-                  type="text"
-                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-primary transition-colors"
-                  value={profilePic}
-                  onChange={(e) => setProfilePic(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("settings.profile.aboutMe")}</label>
-                <textarea
-                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-primary transition-colors min-h-25"
-                  value={aboutMe}
-                  onChange={(e) => setAboutMe(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-border">
-                <label className="text-sm font-medium block">
-                  {t("settings.profile.visibility")}
-                </label>
-                <div className="flex items-center gap-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      checked={isPublic}
-                      onChange={() => setIsPublic(true)}
-                      className="accent-primary"
-                    />
-                    <span className="text-sm">{t("settings.profile.public")}</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      checked={!isPublic}
-                      onChange={() => setIsPublic(false)}
-                      className="accent-primary"
-                    />
-                    <span className="text-sm">{t("settings.profile.private")}</span>
-                  </label>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-md transition-colors"
-              >
-                {isSaving ? t("settings.saving") : t("settings.profile.updateProfile")}
-              </button>
-            </form>
+            </div>
           </div>
         )}
 
         {activeTab === "preferences" && (
           <div className="grid gap-6 md:grid-cols-2">
-            <div className="rounded-xl border bg-card text-card-foreground shadow p-6">
-              <h3 className="font-semibold leading-none tracking-tight flex items-center gap-2 text-lg mb-2">
-                <Globe className="h-5 w-5 text-primary" />
-                {t("settings.language")}
-              </h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                {t("settings.languageDescription")}
-              </p>
-
-              <div className="flex gap-4">
-                <button
-                  onClick={() => handleLanguageChange("tr")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
-                    currentLanguage === "tr" || currentLanguage.startsWith("tr")
-                      ? "bg-primary text-primary-foreground shadow"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-                >
-                  {t("settings.turkish")}
-                </button>
-                <button
-                  onClick={() => handleLanguageChange("en")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
-                    currentLanguage === "en" || currentLanguage.startsWith("en")
-                      ? "bg-primary text-primary-foreground shadow"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-                >
-                  {t("settings.english")}
-                </button>
-              </div>
-            </div>
-
             <div className="rounded-xl border bg-card text-card-foreground shadow p-6">
               <h3 className="font-semibold leading-none tracking-tight flex items-center gap-2 text-lg mb-2">
                 <Mail className="h-5 w-5 text-primary" />
@@ -695,6 +632,23 @@ function SettingsPage() {
                   </option>
                   <option value="TEACHER_CODE">TEACHER_CODE</option>
                   <option value="ADMIN_CODE">ADMIN_CODE</option>
+                  <option value="ENABLE_GUEST_HOME_FEATURED">ENABLE_GUEST_HOME_FEATURED</option>
+                  <option value="ENABLE_GUEST_HOME_POPULAR">ENABLE_GUEST_HOME_POPULAR</option>
+                  <option value="ENABLE_STUDENT_HOME_RECOMMENDATIONS">
+                    ENABLE_STUDENT_HOME_RECOMMENDATIONS
+                  </option>
+                  <option value="ENABLE_STUDENT_HOME_ANNOUNCEMENTS">
+                    ENABLE_STUDENT_HOME_ANNOUNCEMENTS
+                  </option>
+                  <option value="ENABLE_TEACHER_HOME_NOTIFICATIONS">
+                    ENABLE_TEACHER_HOME_NOTIFICATIONS
+                  </option>
+                  <option value="ENABLE_ADMIN_HOME_CAPACITY_ALERTS">
+                    ENABLE_ADMIN_HOME_CAPACITY_ALERTS
+                  </option>
+                  <option value="ENABLE_ADMIN_HOME_ACTIVITY_LOG">
+                    ENABLE_ADMIN_HOME_ACTIVITY_LOG
+                  </option>
                 </select>
                 <input
                   placeholder={t("settings.system.valuePlaceholder")}

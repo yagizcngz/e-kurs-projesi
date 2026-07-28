@@ -14,9 +14,34 @@ namespace EdTechApi.Business.Services
             _context = context;
         }
 
-        public async Task<IEnumerable<Course>> GetAllCoursesAsync()
+        public async Task<IEnumerable<Course>> GetAllCoursesAsync(string? search = null, string? category = null, bool? isFeatured = null)
         {
-            return await _context.Courses.ToListAsync();
+            var query = _context.Courses.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(c => c.Title.Contains(search) || c.Description.Contains(search));
+            }
+
+            if (!string.IsNullOrWhiteSpace(category))
+            {
+                query = query.Where(c => c.Category.ToLower() == category.ToLower());
+            }
+
+            if (isFeatured.HasValue)
+            {
+                query = query.Where(c => c.IsFeatured == isFeatured.Value);
+            }
+
+            return await query.ToListAsync();
+        }
+
+        public async Task<IEnumerable<Course>> GetPopularCoursesAsync(int count)
+        {
+            return await _context.Courses
+                .OrderByDescending(c => c.Enrollments.Count)
+                .Take(count)
+                .ToListAsync();
         }
 
         public async Task<Course?> GetCourseByIdAsync(int id)
@@ -78,6 +103,20 @@ namespace EdTechApi.Business.Services
             return await _context.Courses
                 .IgnoreQueryFilters()
                 .Where(c => c.IsDeleted)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Course>> GetRecommendedCoursesAsync(int studentId, int count)
+        {
+            var enrolledCourseIds = await _context.Enrollments
+                .Where(e => e.StudentId == studentId && !e.IsDeleted)
+                .Select(e => e.CourseId)
+                .ToListAsync();
+
+            return await _context.Courses
+                .Where(c => !enrolledCourseIds.Contains(c.Id))
+                .OrderByDescending(c => c.CreatedAt)
+                .Take(count)
                 .ToListAsync();
         }
 

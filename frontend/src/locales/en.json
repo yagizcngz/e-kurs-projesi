@@ -3,11 +3,15 @@
     "searchPlaceholder": "Search in system...",
     "sidebar": {
       "home": "Home",
+      "myCourses": "My Courses",
+      "taughtCourses": "Taught Courses",
+      "pendingRequests": "Pending Requests",
       "students": "Students",
       "teachers": "Teachers",
       "courses": "Courses",
       "enrollments": "Enrollments",
       "reports": "Reports",
+      "announcements": "Announcements",
       "profile": "Profile",
       "settings": "Settings",
       "help": "Help",
@@ -49,7 +53,12 @@
         "visibility": "Profile Visibility",
         "public": "Public",
         "private": "Private",
-        "updateProfile": "Update Profile"
+        "updateProfile": "Update Profile",
+        "manageAccount": "Manage Account",
+        "manageAccountDesc": "You can permanently delete your account here. All your data, course enrollments, and information will be deleted. This action cannot be undone.",
+        "deleteAccount": "Delete My Account",
+        "deleteConfirm": "Are you sure you want to permanently delete your account?",
+        "deleteError": "An error occurred while deleting the account."
       },
       "preferences": {
         "title": "Preferences",
@@ -104,6 +113,8 @@
       "loginButton": "Log In",
       "noAccount": "Don't have an account?",
       "register": "Register",
+      "registerNow": "Register Now",
+      "returnHome": "Return Home",
       "invalidCredentials": "Invalid username or password!",
       "serverError": "Cannot connect to server. Is Backend (C# API) running?"
     },
@@ -131,7 +142,15 @@
       "serverError": "Cannot connect to server."
     },
     "dashboard": {
-      "pageTitle": "Home — E-Course",
+      "alerts": {
+        "joinSuccess": "You have successfully joined the course!",
+        "joinError": "Error",
+        "joinErrorGeneric": "An error occurred.",
+        "leaveSuccess": "You have successfully left the course.",
+        "leaveError": "An error occurred.",
+        "leaveErrorGeneric": "An error occurred."
+      },
+      "pageTitle": "Home - E-Course",
       "pageDesc": "Popular courses and platform summary.",
       "unknown": "Unknown",
       "studentRole": "Student",
@@ -145,15 +164,22 @@
       "unnamedCourse": "Unnamed Course",
       "general": "GENERAL",
       "instructor": "Instructor:",
-      "studentCount": "Students"
+      "studentCount": "Students",
+      "myCourses": "My Courses",
+      "recommendedCourses": "Recommended Courses",
+      "announcements": "Announcements",
+      "noAnnouncements": "No announcements yet.",
+      "noMyCourses": "You are not enrolled in any courses yet.",
+      "noRecommendedCourses": "No recommended courses found.",
+      "inProgress": "IN PROGRESS"
     },
     "profile": {
       "breadcrumb": "/ profile / me",
       "title": "My Profile",
       "roles": {
-        "student": "STUDENT",
-        "teacher": "TEACHER",
-        "admin": "ADMIN"
+        "student": "Student",
+        "teacher": "Teacher",
+        "admin": "Admin"
       },
       "defaultUser": "User",
       "aboutMe": "About Me",
@@ -163,6 +189,9 @@
       "noCourses": "You don't have any enrolled courses yet.",
       "profileInfo": "Profile Information",
       "updateProfile": "Update Profile",
+      "profileVisibility": "Profile Visibility",
+      "public": "Public",
+      "hidden": "Hidden",
       "photoUrl": "Profile Picture URL",
       "or": "or",
       "chooseFile": "Choose File",
@@ -230,12 +259,15 @@
       }
     },
     "courseModal": {
+      "enrolled": "Enrolled",
+      "joinCourse": "Join Course",
+      "leaveCourse": "Leave Course",
       "unnamedCourse": "Unnamed Course",
       "general": "General",
       "unknownInstructor": "Unknown",
       "priceLabel": "₺{{price}}",
-      "capacityFull": "{{enrolled}}/{{capacity}} Students",
-      "capacityRegistered": "{{enrolled}} Students Enrolled",
+      "capacityFull": "{{enrolled}}/{{capacity}} Participants",
+      "capacityRegistered": "{{enrolled}} Participants Enrolled",
       "editCourse": "Edit Course",
       "photoLabel": "Course Photo",
       "preview": "Preview",
@@ -265,8 +297,8 @@
       "instructorProfile": "Instructor Profile",
       "instructorRole": "INSTRUCTOR",
       "noInstructorBio": "This instructor has not added a description yet.",
-      "enrolledStudents": "Enrolled Students",
-      "moreStudents": "+{{count}} more students",
+      "enrolledStudents": "Enrolled Participants",
+      "moreStudents": "+{{count}} more participants",
       "errors": {
         "uploadFailed": "Failed to upload photo. Please try again.",
         "serverError": "Cannot connect to server.",
@@ -448,12 +480,15 @@
       "errors": {
         "categoryRequired": "Please select a category.",
         "instructorRequired": "Please select an instructor.",
-        "createSuccess": "Course created successfully!",
+        "createSuccess": "Course successfully created!",
         "createFailed": "Registration failed! Check the form.",
         "serverError": "Cannot connect to server.",
-        "deleteSuccess": "{{count}} courses deleted successfully!",
+        "deleteSuccess": "{{count}} courses successfully deleted!",
         "deleteFailed": "An error occurred while deleting courses."
-      }
+      },
+      "noTaughtCourses": "You haven't taught any courses yet.",
+      "myTeachingRequests": "My Teaching Requests",
+      "noTeachingRequests": "You don't have any teaching requests."
     },
     "enrollments": {
       "breadcrumb": "/ enrollments",
@@ -539,15 +574,49 @@
         "11": "Dec"
       }
     },
+    "requests": {
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+      "pending": "Pending"
+    },
     "backendErrors": {
       "emailInUse": "This email address is already in use.",
       "usernameInUse": "This username is already taken.",
       "studentAlreadyEnrolled": "Student is already enrolled in this course.",
-      "studentNumberInUse": "This student number is already registered.",
-      "fieldsRequired": "Please fill in all required fields."
+      "studentNumberInUse": "This student number is already registered in the system.",
+      "fieldsRequired": "Please fill in the required fields."
     },
     "validation": {
       "required": "Please fill out this field."
+    },
+    "guest": {
+      "heroTitle1": "Start Shaping Your Future",
+      "heroTitle2": "Today",
+      "heroSubtitle": "Discover your potential with hundreds of qualified courses, expert instructors in their fields, and learning tools tailored just for you. Exceed your limits, reach your dreams.",
+      "searchPlaceholder": "In which field would you like to improve yourself?",
+      "searchButton": "Search",
+      "searching": "Searching...",
+      "popularCourses": "Most Popular Courses",
+      "popularCoursesDesc": "Discover our most popular courses that are highly rated and preferred by our students.",
+      "viewAllCourses": "View All Courses",
+      "searchResults": "Search Results",
+      "clearSearch": "Clear Search",
+      "ctaTitle": "Start Your Learning Journey Now",
+      "ctaDesc": "Join our platform today, take the first step on the path to your dream career. You can sign up for free and choose any course.",
+      "ctaButton": "Register for Free Now",
+      "footerTitle": "E-Kurs Platform",
+      "footerDesc": "E-Course All Rights Reserved.",
+      "instructor": "Instructor",
+      "review": "Review",
+      "stats": {
+        "students": "Registered Students",
+        "courses": "Active Courses",
+        "teachers": "Expert Instructors"
+      },
+      "exploreNew": "Start learning by discovering new courses.",
+      "exploreCourses": "Explore Courses",
+      "registerNow": "Register Now",
+      "returnHome": "Return Home"
     }
   }
 }

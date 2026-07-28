@@ -132,7 +132,7 @@ namespace EdTechApi.Business.Services
     student.Email = updatedStudent.Email;
     student.AboutMe = updatedStudent.AboutMe;
     student.ProfilePictureUrl = updatedStudent.ProfilePictureUrl;
-    // StudentNumber ve Date'e bilerek dokunmuyoruz — bunlar sabit kalmalı
+    // StudentNumber ve CreatedAt'e bilerek dokunmuyoruz — bunlar sabit kalmalı
 
     await _context.SaveChangesAsync();
     return true;

@@ -48,6 +48,19 @@ namespace EdTechApi.Business.Services
             await _context.SaveChangesAsync();
         }
 
+        public async Task LeaveCourseAsync(int studentId, int courseId)
+        {
+            var enrollment = await _context.Enrollments
+                .FirstOrDefaultAsync(e => e.StudentId == studentId && e.CourseId == courseId);
+
+            if (enrollment == null)
+                throw new ArgumentException("Kayıt bulunamadı.");
+
+            enrollment.IsDeleted = true;
+            enrollment.DeletedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
         public async Task DeleteEnrollmentAsync(int enrollmentId)
         {
             // Artık hard-delete değil, soft-delete yapıyoruz: satır DB'de kalır,
@@ -77,6 +90,8 @@ namespace EdTechApi.Business.Services
                     StudentFullName = e.Student.FirstName + " " + e.Student.LastName,
                     StudentNumber = e.Student.StudentNumber,
                     CourseTitle = e.Course.Title,
+                    CourseId = e.CourseId,
+                    Status = e.Status,
                     EnrollmentDate = e.EnrollmentDate
                 })
                 .ToListAsync();
@@ -93,6 +108,26 @@ namespace EdTechApi.Business.Services
                     StudentFullName = e.Student.FirstName + " " + e.Student.LastName,
                     StudentNumber = e.Student.StudentNumber,
                     CourseTitle = e.Course.Title,
+                    CourseId = e.CourseId,
+                    Status = e.Status,
+                    EnrollmentDate = e.EnrollmentDate 
+                })
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<EnrollmentDto>> GetStudentEnrollmentsAsync(int studentId)
+        {
+            return await _context.Enrollments
+                .Include(e => e.Course)
+                .Where(e => e.StudentId == studentId && !e.IsDeleted)
+                .Select(e => new EnrollmentDto
+                {
+                    Id = e.Id,
+                    StudentFullName = e.Student.FirstName + " " + e.Student.LastName,
+                    StudentNumber = e.Student.StudentNumber,
+                    CourseTitle = e.Course.Title,
+                    CourseId = e.CourseId,
+                    Status = e.Status,
                     EnrollmentDate = e.EnrollmentDate 
                 })
                 .ToListAsync();

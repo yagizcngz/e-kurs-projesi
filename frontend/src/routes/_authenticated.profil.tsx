@@ -53,6 +53,8 @@ interface ProfileDto {
   FirstName?: string;
   lastName?: string;
   LastName?: string;
+  isProfilePublic?: boolean;
+  IsProfilePublic?: boolean;
 }
 
 const translateRole = (role: string, t: TFunction) => {
@@ -64,11 +66,12 @@ const translateRole = (role: string, t: TFunction) => {
 };
 
 function ProfilePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [name, setName] = useState("");
   const [role, setRole] = useState(t("profile.roles.student"));
   const [photoUrl, setPhotoUrl] = useState("");
   const [bio, setBio] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
   const [enrollments, setEnrollments] = useState<EnrollmentDto[]>([]);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -117,6 +120,7 @@ function ProfilePage() {
           const data: ProfileDto = await res.json();
           setPhotoUrl(data.profilePictureUrl || data.ProfilePictureUrl || "");
           setBio(data.aboutMe || data.AboutMe || "");
+          setIsPublic(data.isProfilePublic ?? data.IsProfilePublic ?? true);
 
           const fName = data.firstName || data.FirstName;
           const lName = data.lastName || data.LastName;
@@ -204,6 +208,7 @@ function ProfilePage() {
         body: JSON.stringify({
           AboutMe: bio,
           ProfilePictureUrl: photoUrl,
+          IsProfilePublic: isPublic,
         }),
       });
 
@@ -326,7 +331,9 @@ function ProfilePage() {
                         key={course}
                         className="rounded-full border border-border bg-background px-3 py-1 text-xs font-medium"
                       >
-                        {course}
+                        {i18n.exists(`dynamic.courses.${course}`)
+                          ? t(`dynamic.courses.${course}`)
+                          : course}
                       </span>
                     ))
                   ) : (
@@ -392,6 +399,7 @@ function ProfilePage() {
                 <input
                   type="text"
                   value={name}
+                  maxLength={100}
                   onChange={(e) => setName(e.target.value)}
                   className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-foreground transition-colors"
                 />
@@ -402,9 +410,36 @@ function ProfilePage() {
                 <textarea
                   rows={4}
                   value={bio}
+                  maxLength={1000}
                   onChange={(e) => setBio(e.target.value)}
                   className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-foreground transition-colors resize-none"
                 />
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <label className="text-sm font-medium block">
+                  {t("profile.profileVisibility", "Profil Görünürlüğü")}
+                </label>
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={isPublic}
+                      onChange={() => setIsPublic(true)}
+                      className="accent-foreground"
+                    />
+                    <span className="text-sm">{t("profile.public", "Herkese Açık")}</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={!isPublic}
+                      onChange={() => setIsPublic(false)}
+                      className="accent-foreground"
+                    />
+                    <span className="text-sm">{t("profile.hidden", "Gizli")}</span>
+                  </label>
+                </div>
               </div>
 
               <button

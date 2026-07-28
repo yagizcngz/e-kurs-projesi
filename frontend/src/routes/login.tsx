@@ -211,7 +211,7 @@ function LoginPage() {
         playSuccess();
 
         setTimeout(() => {
-          navigate({ to: "/" });
+          navigate({ to: "/dashboard" });
         }, 800);
       } else {
         triggerError(t("login.invalidCredentials"));
@@ -245,6 +245,9 @@ function LoginPage() {
           inset: 0;
           z-index: 100;
         }
+        .dark .login-wrapper {
+          background-color: #09090b;
+        }
 
         .login-card {
           display: flex;
@@ -256,6 +259,10 @@ function LoginPage() {
           box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
           min-height: 600px;
         }
+        .dark .login-card {
+          background: #18181b;
+          border: 1px solid #27272a;
+        }
 
         .characters-panel {
           flex: 1;
@@ -264,6 +271,9 @@ function LoginPage() {
           align-items: center;
           justify-content: center;
           position: relative;
+        }
+        .dark .characters-panel {
+          background-color: #27272a;
         }
 
         @media (max-width: 768px) {
@@ -457,31 +467,31 @@ function LoginPage() {
             </div>
           </div>
 
-          <div className="flex-1 bg-white p-8 md:p-14 flex flex-col justify-center">
+          <div className="flex-1 bg-white dark:bg-zinc-900 p-8 md:p-14 flex flex-col justify-center">
             <div className="max-w-sm w-full mx-auto mt-6">
-              <h1 className="text-3xl font-bold text-center text-gray-900 mb-2 tracking-tight">
+              <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-2 tracking-tight">
                 {t("login.welcome")}
               </h1>
-              <p className="text-center text-sm text-gray-500 mb-10">
+              <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-10">
                 {t("login.pleaseEnterDetails")}
               </p>
 
               {error && (
-                <div className="bg-red-50 text-red-500 text-sm p-3 rounded-md mb-6 text-center font-medium animate-pulse">
+                <div className="bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 text-sm p-3 rounded-md mb-6 text-center font-medium animate-pulse">
                   {error}
                 </div>
               )}
 
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
                     {t("login.usernameOrEmail")}
                   </label>
                   <input
                     ref={usernameRef}
                     type="text"
                     required
-                    className="w-full border-b-2 border-gray-200 py-2 outline-none focus:border-black transition-colors bg-transparent text-sm"
+                    className="w-full border-b-2 border-gray-200 dark:border-gray-700 py-2 outline-none focus:border-black dark:focus:border-white transition-colors bg-transparent text-gray-900 dark:text-white text-sm"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     onFocus={() => setIsUsernameFocused(true)}
@@ -490,7 +500,7 @@ function LoginPage() {
                 </div>
 
                 <div className="space-y-1 relative">
-                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
                     {t("login.password")}
                   </label>
                   <div className="relative">
@@ -498,7 +508,7 @@ function LoginPage() {
                       ref={passwordRef}
                       type={passwordVisible ? "text" : "password"}
                       required
-                      className="w-full border-b-2 border-gray-200 py-2 outline-none focus:border-black transition-colors bg-transparent pr-10 text-sm"
+                      className="w-full border-b-2 border-gray-200 dark:border-gray-700 py-2 outline-none focus:border-black dark:focus:border-white transition-colors bg-transparent text-gray-900 dark:text-white pr-10 text-sm"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       onFocus={() => setIsPasswordFocused(true)}
@@ -551,26 +561,37 @@ function LoginPage() {
                     />
                     {t("login.rememberMe")}
                   </label>
-                  <a href="#" className="text-xs text-gray-500 hover:text-black transition-colors">
+                  <a
+                    href="#"
+                    className="text-xs text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
+                  >
                     {t("login.forgotPassword")}
                   </a>
                 </div>
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    className="w-full bg-[#1a1a1c] text-white rounded-full py-3.5 text-sm font-bold hover:bg-black transition-colors"
-                  >
-                    {t("login.loginButton")}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-black dark:bg-white text-white dark:text-black py-3 rounded-md font-semibold hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors shadow-lg hover:shadow-xl mt-4"
+                >
+                  {t("login.loginButton")}
+                </button>
               </form>
 
-              <div className="mt-8 text-center text-xs text-gray-500">
-                {t("login.noAccount")}{" "}
-                <Link to="/register" className="font-semibold text-[#1a1a1c] hover:underline">
-                  {t("login.register")}
-                </Link>
+              <div className="mt-8 text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {t("login.noAccount")}{" "}
+                  <Link
+                    to="/register"
+                    className="text-black dark:text-white font-semibold hover:underline"
+                  >
+                    {t("login.registerNow")}
+                  </Link>
+                </p>
+                <div className="mt-4 flex items-center justify-center gap-4 text-xs font-medium text-gray-400 dark:text-gray-500">
+                  <Link to="/" className="hover:text-black dark:hover:text-white transition-colors">
+                    {t("login.returnHome")}
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

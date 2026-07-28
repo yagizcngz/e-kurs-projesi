@@ -23,10 +23,36 @@ namespace EdTechApi.API.Controllers
             _context = context;
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
+        [Authorize]
+        [HttpGet("recommended")]
+        public async Task<IActionResult> GetRecommended([FromQuery] int count = 5)
         {
-            var courses = await _courseService.GetAllCoursesAsync();
+            var username = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+                
+            if (string.IsNullOrEmpty(username)) return Unauthorized();
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null || (user.Role.ToLower() != "student" && user.Role.ToLower() != "user" && user.Role.ToLower() != "teacher")) return Forbid("Sadece katılımcılar önerilen kursları görebilir.");
+
+            var student = await _context.Students.FirstOrDefaultAsync(s => s.UserId == user.Id);
+            if (student == null) return Ok(new List<object>());
+
+            var recommended = await _courseService.GetRecommendedCoursesAsync(student.Id, count);
+            return Ok(recommended);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] string? category, [FromQuery] bool? isFeatured)
+        {
+            var courses = await _courseService.GetAllCoursesAsync(search, category, isFeatured);
+            return Ok(courses);
+        }
+
+        [HttpGet("popular")]
+        public async Task<IActionResult> GetPopular([FromQuery] int count = 4)
+        {
+            var courses = await _courseService.GetPopularCoursesAsync(count);
             return Ok(courses);
         }
 
@@ -46,10 +72,29 @@ namespace EdTechApi.API.Controllers
         // veya superadmin ile giriş yapan biri kurs oluşturma butonunu görüyor ama backend
         // 403 döndürüyordu. Rol listesi frontend'deki canManage ile eşleşecek şekilde
         // genişletildi.
-        [Authorize(Roles = "Admin,Eğitmen,superadmin")]
+        [Authorize(Roles = "Admin,Teacher,superadmin")]
         [HttpPost]
         public async Task<IActionResult> CreateCourse([FromBody] Course newCourse)
         {
+            if (newCourse.TeacherId == null || newCourse.TeacherId == 0)
+            {
+                var username = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+                if (!string.IsNullOrEmpty(username))
+                {
+                    var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+                    if (user != null)
+                    {
+                        var teacher = await _context.Teachers.FirstOrDefaultAsync(t => t.UserId == user.Id);
+                        if (teacher != null)
+                        {
+                            newCourse.TeacherId = teacher.Id;
+                            newCourse.Instructor = $"{teacher.FirstName} {teacher.LastName}";
+                        }
+                    }
+                }
+            }
+
             var (isValid, error) = await ValidateCategoryAndTeacherAsync(newCourse);
             if (!isValid)
             {
@@ -62,7 +107,7 @@ namespace EdTechApi.API.Controllers
 
         // NOT: Aynı sebeple PUT de "Eğitmen" ve "superadmin" rollerine açıldı — öğretmen
         // atama/düzenleme işlemi CourseDetailModal üzerinden bu rollerle yapılabilsin.
-        [Authorize(Roles = "Admin,Eğitmen,superadmin")]
+        [Authorize(Roles = "Admin,Teacher,superadmin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateCourse(int id, [FromBody] Course updatedCourse)
         {
@@ -82,7 +127,7 @@ namespace EdTechApi.API.Controllers
 
         // NOT: Önceden hiç [Authorize] yoktu, yani kimlik doğrulaması olmadan da
         // çağrılabiliyordu. POST/PUT ile aynı rol setine kısıtlandı.
-        [Authorize(Roles = "Admin,Eğitmen,superadmin")]
+        [Authorize(Roles = "Admin,Teacher,superadmin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCourse(int id)
         {
