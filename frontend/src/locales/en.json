@@ -186,6 +186,7 @@
       "loading": "Loading...",
       "noBio": "You haven't added a description yet. You can add one by updating your profile.",
       "enrolledCourses": "Enrolled Courses",
+      "taughtCourses": "Taught Courses",
       "noCourses": "You don't have any enrolled courses yet.",
       "profileInfo": "Profile Information",
       "updateProfile": "Update Profile",
@@ -262,6 +263,7 @@
       "enrolled": "Enrolled",
       "joinCourse": "Join Course",
       "leaveCourse": "Leave Course",
+      "teachCourse": "Teach",
       "unnamedCourse": "Unnamed Course",
       "general": "General",
       "unknownInstructor": "Unknown",
@@ -449,6 +451,8 @@
       "newCourse": "New Course",
       "loading": "Loading Courses...",
       "notFound": "No registered courses found.",
+      "allCategories": "All",
+      "filter": "Filter",
       "unnamedCourse": "Unnamed Course",
       "general": "General",
       "viewDetails": "View course details",
@@ -577,7 +581,13 @@
     "requests": {
       "accepted": "Accepted",
       "rejected": "Rejected",
-      "pending": "Pending"
+      "pending": "Pending",
+      "sentSuccess": "Teaching request has been sent.",
+      "sentFailed": "Failed to send request.",
+      "cancelSuccess": "Request canceled successfully.",
+      "cancelFailed": "Failed to cancel request.",
+      "serverError": "Server error occurred.",
+      "cancel": "Cancel Request"
     },
     "backendErrors": {
       "emailInUse": "This email address is already in use.",

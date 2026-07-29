@@ -45,6 +45,13 @@ namespace EdTechApi.API.Controllers
                 
             if (existingRequest != null) return BadRequest("You already have a pending request for this course.");
 
+            if (string.IsNullOrEmpty(teacher.Branch)) return BadRequest("Profilinize kayıtlı hiçbir branş yok. Önce profilinize branş ekleyiniz.");
+            
+            var teacherBranches = teacher.Branch.Split(",").Select(b => b.Trim()).ToList();
+            if (!teacherBranches.Any(b => string.Equals(b, course.Category, StringComparison.OrdinalIgnoreCase))) 
+                return BadRequest($"Bu kursa ders verme isteği atamazsınız. {course.Category} branşına sahip değilsiniz.");
+
+
             var request = new TeachingRequest
             {
                 CourseId = dto.CourseId,
@@ -140,7 +147,7 @@ namespace EdTechApi.API.Controllers
 
             request.Status = "Accepted";
             request.Course.TeacherId = request.TeacherId;
-            request.Course.Instructor = request.Teacher.FirstName + " " + request.Teacher.LastName;
+            request.Course.Instructor = $"{request.Teacher.FirstName} {request.Teacher.LastName}".Trim();
             
             // Reject other pending requests for the same course
             var otherRequests = await _context.TeachingRequests

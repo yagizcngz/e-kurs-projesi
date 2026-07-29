@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "../components/PageHeader";
-import { Plus, X, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
+import { Plus, X, CheckCircle2, AlertCircle, Trash2, Filter } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { CourseDetailModal } from "../components/CourseDetailModal";
+import { useNavigate } from "@tanstack/react-router";
 import {
   getCourseImage,
   getTeacherFullName,
@@ -16,6 +17,9 @@ import {
 
 export const Route = createFileRoute("/_authenticated/kurslar")({
   component: CoursesPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    category: (search.category as string) || "",
+  }),
 });
 
 const parseJwt = (token: string) => {
@@ -38,9 +42,17 @@ const parseJwt = (token: string) => {
 
 function CoursesPage() {
   const { t, i18n } = useTranslation();
+  const { category: categoryFromUrl } = Route.useSearch();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl || "");
   const [dbCourses, setDbCourses] = useState<CourseData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Sync category from URL when navigating from dashboard
+  useEffect(() => {
+    setSelectedCategory(categoryFromUrl || "");
+  }, [categoryFromUrl]);
 
   const [currentUser, setCurrentUser] = useState({
     name: t("courses.unknown"),
@@ -48,6 +60,7 @@ function CoursesPage() {
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [myTeacherId, setMyTeacherId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newCapacity, setNewCapacity] = useState("");
   const [newPrice, setNewPrice] = useState("");
@@ -65,6 +78,7 @@ function CoursesPage() {
   // eşleştirmesi için /api/teachers'tan çekilen liste.
   const [dbTeachers, setDbTeachers] = useState<TeacherLiteDto[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(!!categoryFromUrl);
 
   // ÇOKLU SEÇİM VE DÜZENLEME MODU STATE'LERİ
   const [isEditMode, setIsEditMode] = useState(false);
@@ -112,6 +126,7 @@ function CoursesPage() {
           payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ||
           payload.name ||
           payload.unique_name ||
+          payload.sub ||
           t("courses.unknownInstructor");
         const role =
           payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
@@ -141,7 +156,22 @@ function CoursesPage() {
     const fetchTeachers = async () => {
       try {
         const res = await fetch("http://localhost:5157/api/teachers", { headers });
-        if (res.ok) setDbTeachers(await res.json());
+        if (res.ok) {
+          const teachers = await res.json();
+          setDbTeachers(teachers);
+
+          const token = localStorage.getItem("jwt_token");
+          const payload = token ? parseJwt(token) : null;
+          const email =
+            payload?.["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] ||
+            payload?.email;
+          const selfTeacher = teachers.find(
+            (t: TeacherLiteDto) => email && (t.email === email || t.Email === email),
+          );
+          if (selfTeacher) {
+            setMyTeacherId(selfTeacher.id || selfTeacher.Id);
+          }
+        }
       } catch (error) {
         console.error("Öğretmen listesi alınamadı:", error);
       }
@@ -194,9 +224,7 @@ function CoursesPage() {
   // listesinde adı eşleşen bir kayıt varsa) formu onun branşı ve kendisiyle önceden
   // dolduruyoruz; admin dilerse değiştirebilir.
   const handleOpenAddModal = () => {
-    const selfTeacher = dbTeachers.find(
-      (t) => getTeacherFullName(t).trim().toLowerCase() === currentUser.name.trim().toLowerCase(),
-    );
+    const selfTeacher = dbTeachers.find((t) => (t.id || t.Id) === myTeacherId);
     if (selfTeacher) {
       const branch = selfTeacher.branch || selfTeacher.Branch || "";
       setNewCategory(branch);
@@ -373,12 +401,26 @@ function CoursesPage() {
     const fTitle = c.title || c.Title || "";
     const fInstructor = c.instructor || c.Instructor || "";
     const fCategory = c.category || c.Category || "";
-    return (
+
+    const matchesSearch =
       fTitle.toLowerCase().includes(searchLower) ||
       fInstructor.toLowerCase().includes(searchLower) ||
-      fCategory.toLowerCase().includes(searchLower)
-    );
+      fCategory.toLowerCase().includes(searchLower);
+
+    const matchesCategory = !selectedCategory || fCategory === selectedCategory;
+
+    return matchesSearch && matchesCategory;
   });
+
+  const handleCategorySelect = (cat: string) => {
+    const newCat = cat === selectedCategory ? "" : cat;
+    setSelectedCategory(newCat);
+    navigate({
+      to: "/kurslar",
+      search: { category: newCat || "" },
+      replace: true,
+    });
+  };
 
   return (
     <>
@@ -433,6 +475,57 @@ function CoursesPage() {
       />
 
       <div className="p-8 animate-reveal">
+        {/* Category Filter */}
+        {categories.length > 0 && (
+          <div className="mb-6">
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                isFilterOpen || selectedCategory
+                  ? "bg-foreground text-background"
+                  : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
+            >
+              <Filter className="size-3.5" />
+              {selectedCategory
+                ? i18n.exists(`dynamic.categories.${selectedCategory}`)
+                  ? t(`dynamic.categories.${selectedCategory}`)
+                  : selectedCategory
+                : t("courses.filter", "Filtrele")}
+            </button>
+
+            {isFilterOpen && (
+              <div className="flex items-center gap-2 mt-3 flex-wrap animate-in fade-in slide-in-from-top-2 duration-200">
+                <button
+                  onClick={() => handleCategorySelect("")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                    !selectedCategory
+                      ? "bg-foreground text-background"
+                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  }`}
+                >
+                  {t("courses.allCategories", "Tumu")}
+                </button>
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => handleCategorySelect(cat)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                      selectedCategory === cat
+                        ? "bg-foreground text-background"
+                        : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    }`}
+                  >
+                    {i18n.exists(`dynamic.categories.${cat}`)
+                      ? t(`dynamic.categories.${cat}`)
+                      : cat}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {isLoading ? (
             <div className="col-span-full py-12 text-center text-muted-foreground animate-pulse font-mono text-xs uppercase tracking-widest">
@@ -513,14 +606,19 @@ function CoursesPage() {
                     </h4>
                     <div className="flex justify-between items-center text-xs text-muted-foreground mt-auto">
                       <span>{t("courses.instructorPrefix", { name: instructor })}</span>
-                      {currentUser.role === "Eğitmen" && (
-                        <button
-                          onClick={(e) => handleTeachCourseRequest(e, currentId as string | number)}
-                          className="bg-primary/10 text-primary px-3 py-1 rounded hover:bg-primary/20 transition-colors font-medium"
-                        >
-                          Ders Ver
-                        </button>
-                      )}
+                      {currentUser.role === "Eğitmen" &&
+                        myTeacherId &&
+                        String(c.teacherId || c.TeacherId) !== String(myTeacherId) &&
+                        !myCourses.some((enc) => (enc.courseId || enc.CourseId) === currentId) && (
+                          <button
+                            onClick={(e) =>
+                              handleTeachCourseRequest(e, currentId as string | number)
+                            }
+                            className="bg-primary text-primary-foreground px-3 py-1 rounded hover:opacity-90 shadow-sm transition-all font-medium text-xs"
+                          >
+                            {t("courseModal.teachCourse", "Ders Ver")}
+                          </button>
+                        )}
                     </div>
 
                     {/* SADECE DÜZENLEME MODUNDAYKEN GÖRÜNECEK ONAY KUTUSU (Sil Butonu Yerine) */}

@@ -63,6 +63,7 @@ export function CourseDetailModal({
   // elemanının value'su için). Boş string = "henüz öğretmen seçilmedi".
   const [editTeacherId, setEditTeacherId] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editImageUrl, setEditImageUrl] = useState("");
   const [imageMode, setImageMode] = useState<"upload" | "link">("upload");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -71,6 +72,7 @@ export function CourseDetailModal({
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [expandedParticipantIdx, setExpandedParticipantIdx] = useState<number | null>(null);
 
   const courseId = course.id ?? course.Id;
   useEffect(() => {
@@ -101,6 +103,8 @@ export function CourseDetailModal({
 
   const [currentUserRole, setCurrentUserRole] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | number>("");
+  const [currentUserEmail, setCurrentUserEmail] = useState("");
+  const [currentUserName, setCurrentUserName] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("jwt_token");
@@ -126,6 +130,18 @@ export function CourseDetailModal({
           payload.sub ||
           "";
         setCurrentUserId(id);
+        const email =
+          payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] ||
+          payload.email ||
+          "";
+        setCurrentUserEmail(email);
+        const name =
+          payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ||
+          payload.name ||
+          payload.unique_name ||
+          payload.sub ||
+          "";
+        setCurrentUserName(name);
       } catch (e) {
         // ignore
       }
@@ -135,10 +151,36 @@ export function CourseDetailModal({
   const isTeacherRole = currentUserRole === "teacher" || currentUserRole === "eğitmen";
   const isAdminRole = currentUserRole === "admin" || currentUserRole === "superadmin";
 
-  const myTeacherProfile = teachers.find(
-    (t) => String(t.userId ?? t.UserId) === String(currentUserId),
-  );
+  const myTeacherProfile = teachers.find((t) => {
+    const idMatch =
+      currentUserId &&
+      (t.userId ?? t.UserId) &&
+      String(t.userId ?? t.UserId) === String(currentUserId);
+    const emailMatch =
+      currentUserEmail &&
+      (t.email?.toLowerCase() === currentUserEmail.toLowerCase() ||
+        t.Email?.toLowerCase() === currentUserEmail.toLowerCase());
+    const nameMatch =
+      currentUserName && getTeacherFullName(t).toLowerCase() === currentUserName.toLowerCase();
+    return idMatch || emailMatch || nameMatch;
+  });
   const myTeacherId = myTeacherProfile ? (myTeacherProfile.id ?? myTeacherProfile.Id) : null;
+
+  const isTeacherOfThisCourse =
+    isTeacherRole &&
+    teacherId !== undefined &&
+    teacherId !== null &&
+    String(teacherId) === String(myTeacherId);
+
+  const canViewParticipants = isAdminRole || isTeacherOfThisCourse;
+
+  const teacherBranches =
+    myTeacherProfile && (myTeacherProfile.branch || myTeacherProfile.Branch)
+      ? (myTeacherProfile.branch || myTeacherProfile.Branch)
+          ?.split(",")
+          .map((b: string) => b.trim()) || []
+      : [];
+  const hasMatchingBranch = teacherBranches.includes(course.category || course.Category || "");
 
   const handleTeachRequest = async () => {
     try {
@@ -411,38 +453,50 @@ export function CourseDetailModal({
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background text-xs font-bold">
                 ₺{price}
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background text-xs font-bold">
-                <Users className="size-3.5" />
-                {capacity
-                  ? t("courseModal.capacityFull", { enrolled: courseEnrollments.length, capacity })
-                  : t("courseModal.capacityRegistered", { enrolled: courseEnrollments.length })}
-              </div>
+              {canViewParticipants ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    document
+                      .getElementById("participants-section")
+                      ?.scrollIntoView({ behavior: "smooth" })
+                  }
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background text-xs font-bold hover:bg-foreground/5 cursor-pointer transition-colors"
+                >
+                  <Users className="size-3.5" />
+                  {capacity
+                    ? t("courseModal.capacityFull", {
+                        enrolled: courseEnrollments.length,
+                        capacity,
+                      })
+                    : t("courseModal.capacityRegistered", { enrolled: courseEnrollments.length })}
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background text-xs font-bold">
+                  <Users className="size-3.5" />
+                  {capacity
+                    ? t("courseModal.capacityFull", {
+                        enrolled: courseEnrollments.length,
+                        capacity,
+                      })
+                    : t("courseModal.capacityRegistered", { enrolled: courseEnrollments.length })}
+                </div>
+              )}
             </div>
 
             {(isAdminRole || (isTeacherRole && String(teacherId) === String(myTeacherId))) &&
               !isEditing && (
                 <button
                   onClick={handleStartEdit}
-                  className="flex items-center gap-1.5 text-xs font-bold border border-border rounded-md px-3 py-1.5 hover:bg-foreground/5 transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-bold bg-accent text-accent-foreground rounded-md px-3 py-1.5 hover:opacity-90 shadow-sm transition-all"
                 >
                   <Edit2 className="size-3.5" />
                   {t("courseModal.editCourse")}
                 </button>
               )}
 
-            {isTeacherRole &&
-              String(teacherId) !== String(myTeacherId) &&
-              instructor !== getTeacherFullName(myTeacherProfile || {}) &&
-              !isEditing && (
-                <button
-                  onClick={handleTeachRequest}
-                  className="flex items-center gap-1.5 text-xs font-bold border border-primary text-primary rounded-md px-3 py-1.5 hover:bg-primary/5 transition-colors"
-                >
-                  {t("courseModal.teachCourse", "Ders Ver")}
-                </button>
-              )}
-
-            {isStudent &&
+            {!isAdminRole &&
+              !isTeacherOfThisCourse &&
               (isEnrolled ? (
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5 text-xs font-bold border border-accent text-accent rounded-md px-3 py-1.5 bg-accent/5">
@@ -473,12 +527,37 @@ export function CourseDetailModal({
                   )}
                 </div>
               ) : (
-                <button
-                  onClick={onJoin}
-                  className="flex items-center gap-1.5 text-xs font-bold bg-accent text-white rounded-md px-4 py-1.5 hover:bg-accent/90 transition-colors"
-                >
-                  {t("courseModal.joinCourse", "Kursa Katıl")}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={onJoin}
+                    className="flex items-center gap-1.5 text-xs font-bold bg-accent text-white rounded-md px-4 py-1.5 hover:bg-accent/90 transition-colors"
+                  >
+                    {t("courseModal.joinCourse", "Kursa Katıl")}
+                  </button>
+                  {isTeacherRole && !isEditing && hasMatchingBranch && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="flex items-center justify-center size-8 border border-border rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+                            <MoreVertical className="size-4 text-muted-foreground" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-40 p-2 z-300" align="end">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTeachRequest();
+                            }}
+                            className="flex w-full items-center gap-1.5 text-xs font-bold text-primary rounded-md px-3 py-2 hover:bg-primary hover:text-primary-foreground active:bg-primary/90 transition-all"
+                          >
+                            <BookOpen className="size-3.5" />
+                            {t("courseModal.teachCourse", "Ders Ver")}
+                          </button>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
+                </div>
               ))}
           </div>
 
@@ -717,24 +796,52 @@ export function CourseDetailModal({
                 </div>
               </div>
 
-              {courseEnrollments.length > 0 && (
-                <div>
+              {canViewParticipants && courseEnrollments.length > 0 && (
+                <div id="participants-section">
                   <h3 className="text-sm font-bold text-foreground/80 mb-2 flex items-center gap-2">
                     <Users className="size-4" />
                     {t("courseModal.enrolledStudents")}
                   </h3>
-                  <ul className="text-sm text-foreground space-y-1.5">
-                    {courseEnrollments.slice(0, 8).map((enr, idx) => (
-                      <li key={idx} className="flex items-center gap-2">
-                        <span className="size-1.5 rounded-full bg-foreground/50 shrink-0"></span>
-                        {enr.studentFullName || enr.StudentFullName}
+                  <ul className="text-sm text-foreground space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                    {courseEnrollments.map((enr, idx) => (
+                      <li key={idx} className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedParticipantIdx(expandedParticipantIdx === idx ? null : idx)
+                          }
+                          className="flex items-center gap-2 text-left hover:text-primary transition-colors focus:outline-none w-full"
+                        >
+                          <span className="size-1.5 rounded-full bg-foreground/50 shrink-0"></span>
+                          <span className="font-medium">
+                            {enr.studentFullName || enr.StudentFullName}
+                          </span>
+                        </button>
+
+                        {expandedParticipantIdx === idx && (
+                          <div className="pl-[14px] flex flex-col gap-1 mt-0.5 animate-reveal">
+                            <div className="text-[11px] text-muted-foreground border-l-2 border-primary/20 pl-2.5 py-0.5 space-y-1">
+                              <p>
+                                <span className="font-semibold text-foreground/70">
+                                  {t("courseModal.studentNumber", "Öğrenci No")}:
+                                </span>{" "}
+                                {enr.studentNumber || enr.StudentNumber || "-"}
+                              </p>
+                              <p>
+                                <span className="font-semibold text-foreground/70">
+                                  {t("courseModal.enrollmentDate", "Kayıt Tarihi")}:
+                                </span>{" "}
+                                {enr.enrollmentDate || enr.EnrollmentDate
+                                  ? new Date(
+                                      enr.enrollmentDate || enr.EnrollmentDate || "",
+                                    ).toLocaleDateString()
+                                  : "-"}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </li>
                     ))}
-                    {courseEnrollments.length > 8 && (
-                      <li className="text-xs text-muted-foreground pl-3.5">
-                        {t("courseModal.moreStudents", { count: courseEnrollments.length - 8 })}
-                      </li>
-                    )}
                   </ul>
                 </div>
               )}

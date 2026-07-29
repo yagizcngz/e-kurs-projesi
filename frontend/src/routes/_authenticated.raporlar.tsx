@@ -362,14 +362,7 @@ function ReportsPage() {
                       const studentNumber = String(rawStudentNumber).toLowerCase();
 
                       const studentEnrollments = dbEnrollments.filter((e) => {
-                        const rawEnrName = e.studentFullName || e.StudentFullName || "";
-                        const enrName = String(rawEnrName).toLowerCase();
-                        const rawEnrNumber = e.studentNumber || e.StudentNumber || "";
-                        const enrNumber = String(rawEnrNumber).toLowerCase();
-                        return (
-                          (enrName && studentFullName && enrName.includes(studentFullName)) ||
-                          (enrNumber && studentNumber && enrNumber === studentNumber)
-                        );
+                        return String(e.studentId || e.StudentId) === String(s.id || s.Id);
                       });
                       const calculatedStatus =
                         studentEnrollments.length > 0 ? t("reports.active") : t("reports.inactive");

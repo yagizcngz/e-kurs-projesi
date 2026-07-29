@@ -7,7 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
-import { fetchCategories } from "@/components/courseHelpers";
+import {
+  fetchCategories,
+  getCourseImage,
+  type CourseData,
+  type TeacherLiteDto,
+  type EnrollmentDto,
+} from "@/components/courseHelpers";
+import { CourseDetailModal } from "@/components/CourseDetailModal";
 
 export const Route = createFileRoute("/_authenticated/verdigim-kurslar")({
   component: TaughtCoursesPage,
@@ -15,8 +22,7 @@ export const Route = createFileRoute("/_authenticated/verdigim-kurslar")({
 
 function TaughtCoursesPage() {
   const { t, i18n } = useTranslation();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [courses, setCourses] = useState<any[]>([]);
+  const [courses, setCourses] = useState<CourseData[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [requests, setRequests] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -28,6 +34,10 @@ function TaughtCoursesPage() {
   const [newPrice, setNewPrice] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newCategory, setNewCategory] = useState("");
+
+  const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
+  const [dbTeachers, setDbTeachers] = useState<TeacherLiteDto[]>([]);
+  const [dbEnrollments, setDbEnrollments] = useState<EnrollmentDto[]>([]);
 
   const fetchData = async () => {
     try {
@@ -43,12 +53,49 @@ function TaughtCoursesPage() {
       const cRes = await fetch("http://localhost:5157/api/courses", {
         headers: { Authorization: `Bearer ${token}` },
       });
+      const tRes = await fetch("http://localhost:5157/api/teachers", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const eRes = await fetch("http://localhost:5157/api/enrollments", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (eRes.ok) {
+        setDbEnrollments(await eRes.json());
+      }
+
       if (cRes.ok) {
         const allCourses = await cRes.json();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const myCourses = allCourses.filter((c: any) => {
-          const instructorName = `${profile.firstName} ${profile.lastName}`.trim();
-          return c.instructor === instructorName || c.Instructor === instructorName;
+        let myTeacherId = null;
+
+        if (tRes.ok) {
+          const allTeachers = await tRes.json();
+          setDbTeachers(allTeachers);
+          // Find the teacher profile that belongs to the current user
+          const me = allTeachers.find(
+            (t: TeacherLiteDto) => t.email === profile.email || t.Email === profile.email,
+          );
+          if (me) {
+            myTeacherId = me.id || me.Id;
+          }
+        }
+
+        const myCourses = allCourses.filter((c: CourseData) => {
+          // If we know the teacher ID, it's the safest match
+          if (myTeacherId && (c.teacherId === myTeacherId || c.TeacherId === myTeacherId)) {
+            return true;
+          }
+
+          // Fallback to name matching
+          const instructorName = `${profile.firstName || ""} ${profile.lastName || ""}`.trim();
+          if (
+            instructorName &&
+            (c.instructor === instructorName || c.Instructor === instructorName)
+          ) {
+            return true;
+          }
+
+          return false;
         });
         setCourses(myCourses);
       }
@@ -170,29 +217,58 @@ function TaughtCoursesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
-              {courses.map((c) => (
-                <Card key={c.id || c.Id} className="group hover:border-accent transition-colors">
-                  <div className="w-full aspect-video bg-neutral-100 flex items-center justify-center border-b">
-                    {/* Placeholder image for taught courses */}
-                    <span className="text-muted-foreground text-xs uppercase font-bold tracking-wider">
-                      {i18n.exists(`dynamic.categories.${c.category || c.Category}`)
-                        ? t(`dynamic.categories.${c.category || c.Category}`)
-                        : c.category || c.Category}
-                    </span>
-                  </div>
-                  <CardContent className="p-4">
-                    <h3 className="font-bold mb-2 line-clamp-2">{c.title || c.Title}</h3>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      {t("courses.capacity")}: {c.maxCapacity || c.MaxCapacity || 0}
-                    </p>
-                    <div className="text-primary font-bold">
-                      {c.price || c.Price
-                        ? `₺${c.price || c.Price}`
-                        : t("courses.free", "Ücretsiz")}
+              {courses.map((c, index) => {
+                const currentId = c.id || c.Id;
+                const title = c.title || c.Title || t("courses.unnamedCourse");
+                const category = c.category || c.Category || t("courses.general");
+                const price = c.price || c.Price || "0";
+                const instructor = c.instructor || c.Instructor || t("courses.unknown");
+                const imageUrl = getCourseImage(c, index);
+
+                return (
+                  <div
+                    key={currentId || index}
+                    onClick={() => setSelectedCourse(c)}
+                    className="group bg-card border border-border hover:border-accent transition-colors rounded-md overflow-hidden shadow-sm flex flex-col cursor-pointer"
+                  >
+                    <div className="w-full aspect-video relative overflow-hidden bg-neutral-100">
+                      <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
+                      <div
+                        className="absolute inset-0 opacity-20"
+                        style={{
+                          backgroundImage:
+                            "linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(0,0,0,0.06) 100%)",
+                        }}
+                      />
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    <div className="p-5 flex-1 flex flex-col">
+                      <div className="flex justify-between items-start mb-3">
+                        <span className="text-[10px] font-mono text-accent uppercase">
+                          {i18n.exists(`dynamic.categories.${category}`)
+                            ? t(`dynamic.categories.${category}`)
+                            : category}
+                        </span>
+                        <span className="text-sm font-bold">
+                          {price === "0" || price === 0
+                            ? t("courses.free", "Ücretsiz")
+                            : `₺${price}`}
+                        </span>
+                      </div>
+                      <h4 className="font-bold mb-4 line-clamp-2 flex-1">
+                        {i18n.exists(`dynamic.courses.${title}`)
+                          ? t(`dynamic.courses.${title}`)
+                          : title}
+                      </h4>
+                      <div className="flex justify-between items-center text-xs text-muted-foreground mt-auto">
+                        <span>{t("courses.instructorPrefix", { name: instructor })}</span>
+                        <span>
+                          {t("courses.capacity")}: {c.maxCapacity || c.MaxCapacity || 0}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -209,7 +285,13 @@ function TaughtCoursesPage() {
                 <Card key={r.id}>
                   <CardContent className="p-4 flex flex-col gap-3">
                     <div>
-                      <h3 className="font-bold line-clamp-2">{r.courseTitle}</h3>
+                      <h3 className="font-bold line-clamp-2">
+                        {i18n.exists(
+                          `dynamic.courses.${(r.courseTitle || r.CourseTitle || "").trim()}`,
+                        )
+                          ? t(`dynamic.courses.${(r.courseTitle || r.CourseTitle || "").trim()}`)
+                          : r.courseTitle || r.CourseTitle}
+                      </h3>
                       <p className="text-xs text-muted-foreground mt-1">
                         {new Date(r.createdAt).toLocaleDateString()}
                       </p>
@@ -218,20 +300,25 @@ function TaughtCoursesPage() {
                       <div className="flex items-center justify-between">
                         <Badge
                           variant={
-                            r.status === "Accepted"
-                              ? "default"
-                              : r.status === "Rejected"
-                                ? "destructive"
-                                : "secondary"
+                            r.status === "Pending" || r.Status === "Pending"
+                              ? "outline"
+                              : r.status === "Accepted" || r.Status === "Accepted"
+                                ? "default"
+                                : "destructive"
+                          }
+                          className={
+                            r.status === "Accepted" || r.Status === "Accepted"
+                              ? "bg-emerald-500 hover:bg-emerald-600 text-white border-transparent"
+                              : ""
                           }
                         >
-                          {r.status === "Accepted"
-                            ? t("requests.accepted")
-                            : r.status === "Rejected"
-                              ? t("requests.rejected")
-                              : t("requests.pending")}
+                          {r.status === "Pending" || r.Status === "Pending"
+                            ? t("requests.pending", "Bekliyor")
+                            : r.status === "Accepted" || r.Status === "Accepted"
+                              ? t("requests.accepted", "Kabul Edildi")
+                              : t("requests.rejected", "Reddedildi")}
                         </Badge>
-                        {r.status === "Pending" && (
+                        {(r.status === "Pending" || r.Status === "Pending") && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -338,6 +425,22 @@ function TaughtCoursesPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {selectedCourse && (
+        <CourseDetailModal
+          course={selectedCourse}
+          onClose={() => setSelectedCourse(null)}
+          canManage={true}
+          teachers={dbTeachers}
+          enrollments={dbEnrollments}
+          categories={categories}
+          onSaved={() => {
+            setSelectedCourse(null);
+            fetchData();
+          }}
+          isStudent={false}
+        />
       )}
     </>
   );

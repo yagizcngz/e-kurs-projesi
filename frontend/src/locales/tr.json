@@ -185,7 +185,8 @@
       "aboutMe": "Kendim Hakkında",
       "loading": "Yükleniyor...",
       "noBio": "Henüz bir açıklama eklemediniz. Profilinizi güncelleyerek ekleyebilirsiniz.",
-      "enrolledCourses": "Kayıtlı Kurslar",
+      "enrolledCourses": "Aldığı Kurslar",
+      "taughtCourses": "Verdiği Dersler",
       "noCourses": "Henüz kurs kaydınız görünmüyor.",
       "profileInfo": "Profil bilgileri",
       "updateProfile": "Profili güncelle",
@@ -449,6 +450,8 @@
       "newCourse": "Yeni Kurs",
       "loading": "Kurslar Yükleniyor...",
       "notFound": "Kayıtlı kurs bulunamadı.",
+      "allCategories": "Tümü",
+      "filter": "Filtrele",
       "unnamedCourse": "İsimsiz Kurs",
       "general": "Genel",
       "viewDetails": "Kurs detaylarını görüntüle",
@@ -577,7 +580,11 @@
     "requests": {
       "accepted": "Kabul Edildi",
       "rejected": "Reddedildi",
-      "pending": "Beklemede"
+      "pending": "Bekliyor",
+      "cancelSuccess": "İstek başarıyla geri alındı.",
+      "cancelFailed": "İstek geri alınamadı.",
+      "serverError": "Sunucu hatası oluştu.",
+      "cancel": "İsteği Geri Al"
     },
     "backendErrors": {
       "emailInUse": "Bu e-posta adresi zaten kullanımda.",

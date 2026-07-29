@@ -3,7 +3,12 @@ import { useTranslation } from "react-i18next";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PageHeader } from "@/components/PageHeader";
 import { CourseDetailModal } from "@/components/CourseDetailModal";
-import { getCourseImage, type EnrollmentDto, type CourseData } from "@/components/courseHelpers";
+import {
+  getCourseImage,
+  type EnrollmentDto,
+  type CourseData,
+  type TeacherLiteDto,
+} from "@/components/courseHelpers";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/kurslarim")({
@@ -13,26 +18,49 @@ export const Route = createFileRoute("/_authenticated/kurslarim")({
 function MyCoursesPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [courses, setCourses] = useState<any[]>([]);
+  const [courses, setCourses] = useState<EnrollmentDto[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
+  const [dbTeachers, setDbTeachers] = useState<TeacherLiteDto[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [dbEnrollments, setDbEnrollments] = useState<EnrollmentDto[]>([]);
 
   const fetchMyCourses = async () => {
     try {
       const token = localStorage.getItem("jwt_token");
       if (!token) return;
 
-      const [enrollRes, coursesRes] = await Promise.all([
-        fetch("http://localhost:5157/api/enrollments/my-courses", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch("http://localhost:5157/api/courses", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
+      const [enrollRes, coursesRes, teachersRes, categoriesRes, enrollmentsRes] = await Promise.all(
+        [
+          fetch("http://localhost:5157/api/enrollments/my-courses", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch("http://localhost:5157/api/courses", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch("http://localhost:5157/api/teachers", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch("http://localhost:5157/api/categories", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch("http://localhost:5157/api/enrollments", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ],
+      );
+
+      if (teachersRes.ok) {
+        setDbTeachers(await teachersRes.json());
+      }
+      if (categoriesRes.ok) {
+        const cats = await categoriesRes.json();
+        setCategories(cats.map((c: { name?: string; Name?: string }) => c.name || c.Name || ""));
+      }
+      if (enrollmentsRes.ok) {
+        setDbEnrollments(await enrollmentsRes.json());
+      }
 
       if (enrollRes.ok && coursesRes.ok) {
         const enrollments = await enrollRes.json();
@@ -86,7 +114,7 @@ function MyCoursesPage() {
               {t("guest.exploreNew", "Yeni kurslar keşfederek öğrenmeye başlayın.")}
             </p>
             <button
-              onClick={() => navigate({ to: "/kurslar" })}
+              onClick={() => navigate({ to: "/kurslar", search: { category: "" } })}
               className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
             >
               {t("guest.exploreCourses", "Kursları İncele")}
@@ -95,7 +123,7 @@ function MyCoursesPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
             {courses.map((enrollment, index) => {
-              const c = enrollment.course || enrollment.Course || enrollment;
+              const c = (enrollment.course || enrollment.Course || enrollment) as CourseData;
               const currentId = c.id ?? c.Id;
               const title = c.title || c.Title || t("courses.unnamedCourse");
               const category = c.category || c.Category || t("courses.general");
@@ -150,9 +178,9 @@ function MyCoursesPage() {
           course={selectedCourse}
           onClose={() => setSelectedCourse(null)}
           canManage={false}
-          enrollments={[]}
-          teachers={[]}
-          categories={[]}
+          enrollments={dbEnrollments}
+          teachers={dbTeachers}
+          categories={categories}
           onSaved={handleCourseSaved}
           isStudent={true}
           isEnrolled={true}

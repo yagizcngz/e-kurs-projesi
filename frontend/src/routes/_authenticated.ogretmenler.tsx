@@ -66,7 +66,7 @@ function TeachersPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newBranch, setNewBranch] = useState("");
+  const [newBranch, setNewBranch] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
@@ -81,7 +81,7 @@ function TeachersPage() {
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [editBranch, setEditBranch] = useState("");
+  const [editBranch, setEditBranch] = useState<string[]>([]);
   const [editAboutMe, setEditAboutMe] = useState("");
   const [editProfilePictureUrl, setEditProfilePictureUrl] = useState("");
   const [profileImageMode, setProfileImageMode] = useState<"upload" | "link">("upload");
@@ -259,7 +259,7 @@ function TeachersPage() {
       }
 
       // Branş girildiyse, oluşturulan öğretmeni bulup PUT ile branş güncelle
-      if (newBranch.trim()) {
+      if (newBranch.length > 0) {
         try {
           const token = localStorage.getItem("jwt_token");
           const headers = {
@@ -282,7 +282,7 @@ function TeachersPage() {
                   FirstName: firstName,
                   LastName: lastName,
                   Email: email,
-                  Branch: newBranch.trim(),
+                  Branch: newBranch.join(", "),
                   Date: created?.date || created?.Date || new Date().toISOString(),
                 }),
               });
@@ -299,7 +299,7 @@ function TeachersPage() {
       setNewEmail("");
       setNewUsername("");
       setNewPassword("");
-      setNewBranch("");
+      setNewBranch([]);
       setIsModalOpen(false);
       fetchTeachers();
     } catch (error) {
@@ -344,7 +344,13 @@ function TeachersPage() {
     setEditFirstName(selectedProfileTeacher.firstName || selectedProfileTeacher.FirstName || "");
     setEditLastName(selectedProfileTeacher.lastName || selectedProfileTeacher.LastName || "");
     setEditEmail(selectedProfileTeacher.email || selectedProfileTeacher.Email || "");
-    setEditBranch(selectedProfileTeacher.branch || selectedProfileTeacher.Branch || "");
+    const branchVal = selectedProfileTeacher.branch || selectedProfileTeacher.Branch || "";
+    setEditBranch(
+      branchVal
+        .split(",")
+        .map((b: string) => b.trim())
+        .filter(Boolean),
+    );
     setEditAboutMe(selectedProfileTeacher.aboutMe || selectedProfileTeacher.AboutMe || "");
     setEditProfilePictureUrl(
       selectedProfileTeacher.profilePictureUrl || selectedProfileTeacher.ProfilePictureUrl || "",
@@ -374,8 +380,10 @@ function TeachersPage() {
       if (response.ok) {
         const data = await response.json();
         setEditProfilePictureUrl(`http://localhost:5157${data.url}`);
+        showToast(t("teachers.errors.updateSuccess"));
       } else {
-        showToast(t("teachers.errors.photoUploadFailed"), "error");
+        const errText = await response.text();
+        showToast(errText || t("teachers.errors.updateFailed"), "error");
       }
     } catch (error) {
       console.error(error);
@@ -399,7 +407,7 @@ function TeachersPage() {
       showToast(t("teachers.errors.nameRequired"), "error");
       return;
     }
-    if (!editBranch) {
+    if (editBranch.length === 0) {
       showToast(t("teachers.errors.branchRequired"), "error");
       return;
     }
@@ -419,7 +427,7 @@ function TeachersPage() {
           FirstName: editFirstName,
           LastName: editLastName,
           Email: editEmail,
-          Branch: editBranch,
+          Branch: editBranch.join(", "),
           AboutMe: editAboutMe,
           ProfilePictureUrl: editProfilePictureUrl,
           Date: selectedProfileTeacher.date || selectedProfileTeacher.Date,
@@ -435,8 +443,8 @@ function TeachersPage() {
           LastName: editLastName,
           email: editEmail,
           Email: editEmail,
-          branch: editBranch,
-          Branch: editBranch,
+          branch: editBranch.join(", "),
+          Branch: editBranch.join(", "),
           aboutMe: editAboutMe,
           AboutMe: editAboutMe,
           profilePictureUrl: editProfilePictureUrl,
@@ -787,28 +795,25 @@ function TeachersPage() {
 
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">{t("teachers.branch")}</label>
-                  <select
-                    required
-                    value={editBranch}
-                    onChange={(e) => setEditBranch(e.target.value)}
-                    className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
-                  >
-                    <option value="" disabled>
-                      {t("teachers.selectBranch")}
-                    </option>
-                    {/* Eski kayıtlarda sabit listede olmayan bir branş varsa kaybolmasın diye
-                        ayrıca gösteriyoruz; kaydetmeden önce listeden birine geçirilmeli. */}
-                    {editBranch && !categories.includes(editBranch) && (
-                      <option value={editBranch}>
-                        {editBranch} {t("teachers.oldValue")}
-                      </option>
-                    )}
-                    {categories.map((b) => (
-                      <option key={b} value={b}>
-                        {b}
-                      </option>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                    {categories.map((c) => (
+                      <label
+                        key={c}
+                        className="flex items-center gap-2 text-sm bg-slate-50 dark:bg-zinc-800/50 p-2 rounded-md cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editBranch.includes(c)}
+                          onChange={(e) => {
+                            if (e.target.checked) setEditBranch([...editBranch, c]);
+                            else setEditBranch(editBranch.filter((b) => b !== c));
+                          }}
+                          className="rounded text-indigo-600 focus:ring-indigo-500"
+                        />
+                        {i18n.exists(`dynamic.categories.${c}`) ? t(`dynamic.categories.${c}`) : c}
+                      </label>
                     ))}
-                  </select>
+                  </div>
                   <p className="text-[11px] text-muted-foreground">{t("teachers.branchWarning")}</p>
                 </div>
 
@@ -886,7 +891,7 @@ function TeachersPage() {
                     <h3 className="text-sm font-bold text-foreground/80 mb-2">
                       {t("teachers.aboutMe")}
                     </h3>
-                    <p className="text-sm text-foreground">
+                    <p className="text-sm text-foreground break-words whitespace-pre-wrap break-all">
                       {selectedProfileTeacher.aboutMe ||
                         selectedProfileTeacher.AboutMe ||
                         t("teachers.noBio")}
@@ -1017,25 +1022,25 @@ function TeachersPage() {
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">{t("teachers.branch")}</label>
-                <select
-                  required
-                  onInvalid={(e) =>
-                    (e.target as HTMLSelectElement).setCustomValidity(t("validation.required"))
-                  }
-                  onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity("")}
-                  className="w-full p-2.5 bg-background border border-border rounded-md text-sm outline-none focus:border-foreground transition-colors"
-                  value={newBranch}
-                  onChange={(e) => setNewBranch(e.target.value)}
-                >
-                  <option value="" disabled>
-                    {t("teachers.selectBranch")}
-                  </option>
-                  {categories.map((b) => (
-                    <option key={b} value={b}>
-                      {i18n.exists(`dynamic.categories.${b}`) ? t(`dynamic.categories.${b}`) : b}
-                    </option>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {categories.map((c) => (
+                    <label
+                      key={c}
+                      className="flex items-center gap-2 text-sm bg-slate-50 dark:bg-zinc-800/50 p-2 rounded-md cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={newBranch.includes(c)}
+                        onChange={(e) => {
+                          if (e.target.checked) setNewBranch([...newBranch, c]);
+                          else setNewBranch(newBranch.filter((b) => b !== c));
+                        }}
+                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                      />
+                      {i18n.exists(`dynamic.categories.${c}`) ? t(`dynamic.categories.${c}`) : c}
+                    </label>
                   ))}
-                </select>
+                </div>
                 <p className="text-[11px] text-muted-foreground">{t("teachers.branchWarning")}</p>
               </div>
 

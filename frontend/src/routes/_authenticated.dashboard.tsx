@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageHeader, SectionHeader } from "../components/PageHeader";
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -394,11 +394,20 @@ function HomePage() {
                       key={group.category}
                       className="space-y-3 border border-border/50 rounded-lg p-4 bg-background/30"
                     >
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-accent border-b border-border/50 pb-2">
-                        {i18n.exists(`dynamic.categories.${group.category}`)
-                          ? t(`dynamic.categories.${group.category}`)
-                          : group.category}
-                      </h3>
+                      <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-accent">
+                          {i18n.exists(`dynamic.categories.${group.category}`)
+                            ? t(`dynamic.categories.${group.category}`)
+                            : group.category}
+                        </h3>
+                        <Link
+                          to="/kurslar"
+                          search={{ category: group.category }}
+                          className="text-xs font-mono text-accent hover:underline transition-all"
+                        >
+                          {t("dashboard.showMore")}
+                        </Link>
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {group.courses.map((c, index) => renderCourseCard(c, index))}
                       </div>

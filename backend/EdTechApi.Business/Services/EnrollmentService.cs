@@ -87,6 +87,7 @@ namespace EdTechApi.Business.Services
                 .Select(e => new EnrollmentDto
                 {
                     Id = e.Id,
+                    StudentId = e.StudentId,
                     StudentFullName = e.Student.FirstName + " " + e.Student.LastName,
                     StudentNumber = e.Student.StudentNumber,
                     CourseTitle = e.Course.Title,
@@ -105,6 +106,7 @@ namespace EdTechApi.Business.Services
                 .Select(e => new EnrollmentDto
                 {
                     Id = e.Id,
+                    StudentId = e.StudentId,
                     StudentFullName = e.Student.FirstName + " " + e.Student.LastName,
                     StudentNumber = e.Student.StudentNumber,
                     CourseTitle = e.Course.Title,
@@ -123,6 +125,7 @@ namespace EdTechApi.Business.Services
                 .Select(e => new EnrollmentDto
                 {
                     Id = e.Id,
+                    StudentId = e.StudentId,
                     StudentFullName = e.Student.FirstName + " " + e.Student.LastName,
                     StudentNumber = e.Student.StudentNumber,
                     CourseTitle = e.Course.Title,

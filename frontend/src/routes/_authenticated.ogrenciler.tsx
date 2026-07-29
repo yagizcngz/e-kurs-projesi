@@ -35,6 +35,8 @@ interface StudentData {
   Course?: string;
   date?: string;
   Date?: string;
+  createdAt?: string;
+  CreatedAt?: string;
   status?: string;
   Status?: string;
   initials?: string;
@@ -284,20 +286,11 @@ function StudentsPage() {
   // Seçili öğrencinin kurs kayıtlarını profil modalı için hesaplayan yardımcı fonksiyon
   const getSelectedStudentEnrollments = () => {
     if (!selectedProfileStudent) return [];
-    const fullName =
-      selectedProfileStudent.name ||
-      `${selectedProfileStudent.firstName || selectedProfileStudent.FirstName || ""} ${selectedProfileStudent.lastName || selectedProfileStudent.LastName || ""}`.trim();
-    const studentFullName = fullName.toLowerCase();
-    const studentNumber = String(
-      selectedProfileStudent.studentNumber || selectedProfileStudent.StudentNumber || "",
-    ).toLowerCase();
 
     return dbEnrollments.filter((e) => {
-      const enrName = String(e.studentFullName || e.StudentFullName || "").toLowerCase();
-      const enrNumber = String(e.studentNumber || e.StudentNumber || "").toLowerCase();
       return (
-        (enrName && studentFullName && enrName.includes(studentFullName)) ||
-        (enrNumber && studentNumber && enrNumber === studentNumber)
+        String(e.studentId || e.StudentId) ===
+        String(selectedProfileStudent.id || selectedProfileStudent.Id)
       );
     });
   };
@@ -526,21 +519,13 @@ function StudentsPage() {
                   const studentNumber = String(rawStudentNumber).toLowerCase();
 
                   const studentEnrollments = dbEnrollments.filter((e) => {
-                    const rawEnrName = e.studentFullName || e.StudentFullName || "";
-                    const enrName = String(rawEnrName).toLowerCase();
-                    const rawEnrNumber = e.studentNumber || e.StudentNumber || "";
-                    const enrNumber = String(rawEnrNumber).toLowerCase();
-
-                    return (
-                      (enrName && studentFullName && enrName.includes(studentFullName)) ||
-                      (enrNumber && studentNumber && enrNumber === studentNumber)
-                    );
+                    return String(e.studentId || e.StudentId) === String(s.id || s.Id);
                   });
 
                   const calculatedStatus =
                     studentEnrollments.length > 0 ? t("students.active") : t("students.inactive");
-                  const dateRaw = s.date || s.Date;
-                  const date = dateRaw ? new Date(dateRaw).toLocaleDateString("tr-TR") : "-";
+                  const dateRaw = s.createdAt || s.CreatedAt || s.date || s.Date;
+                  const date = dateRaw ? new Date(dateRaw).toLocaleDateString() : "-";
                   const currentId = s.id || s.Id;
 
                   return (
@@ -819,7 +804,7 @@ function StudentsPage() {
                     <h3 className="text-sm font-bold text-foreground/80 mb-2">
                       {t("students.aboutMe")}
                     </h3>
-                    <p className="text-sm text-foreground">
+                    <p className="text-sm text-foreground break-words whitespace-pre-wrap break-all">
                       {selectedProfileStudent.aboutMe ||
                         selectedProfileStudent.AboutMe ||
                         t("students.noBio")}

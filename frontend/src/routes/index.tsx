@@ -11,9 +11,12 @@ import {
   Moon,
   Sun,
   Globe,
+  Eye,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { TFunction, i18n } from "i18next";
 import { getCourseImage } from "../components/courseHelpers";
+import { CourseDetailModal } from "../components/CourseDetailModal";
 
 export const Route = createFileRoute("/")({
   component: GuestHomepage,
@@ -43,6 +46,7 @@ function GuestHomepage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CourseData[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
   const [isDark, setIsDark] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
 
@@ -290,7 +294,9 @@ function GuestHomepage() {
                   </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {searchResults.map((course, idx) => renderCourseCard(course, idx, t))}
+                  {searchResults.map((course, idx) =>
+                    renderCourseCard(course, idx, t, setSelectedCourse, i18n),
+                  )}
                 </div>
               </div>
             ) : (
@@ -309,7 +315,7 @@ function GuestHomepage() {
                     </p>
                   </div>
                   <Link
-                    to="/register"
+                    to="/login"
                     className="inline-flex items-center gap-2 text-black dark:text-white font-medium hover:underline"
                   >
                     {t("guest.viewAllCourses", "Tüm Kursları Gör")}{" "}
@@ -319,7 +325,9 @@ function GuestHomepage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {popularCourses.length > 0
-                    ? popularCourses.map((course, idx) => renderCourseCard(course, idx, t))
+                    ? popularCourses.map((course, idx) =>
+                        renderCourseCard(course, idx, t, setSelectedCourse, i18n),
+                      )
                     : Array.from({ length: 4 }).map((_, i) => (
                         <div
                           key={i}
@@ -357,6 +365,21 @@ function GuestHomepage() {
             </div>
           </div>
         </section>
+
+        {selectedCourse && (
+          <CourseDetailModal
+            course={selectedCourse}
+            onClose={() => setSelectedCourse(null)}
+            canManage={false}
+            enrollments={[]}
+            teachers={[]}
+            categories={[]}
+            onSaved={() => {}}
+            isStudent={false}
+            isEnrolled={false}
+            onJoin={() => navigate({ to: "/login" })}
+          />
+        )}
       </main>
 
       {/* Footer */}
@@ -378,8 +401,14 @@ function GuestHomepage() {
 }
 
 // Helper to render a course card aesthetically
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function renderCourseCard(course: CourseData, index: number, t: any) {
+
+function renderCourseCard(
+  course: CourseData,
+  index: number,
+  t: TFunction,
+  onSelect: (c: CourseData) => void,
+  i18n: i18n,
+) {
   // Use a fallback or the provided image URL (make sure it's valid)
   const imgUrl = getCourseImage(
     course as unknown as import("../components/courseHelpers").CourseData,
@@ -402,12 +431,12 @@ function renderCourseCard(course: CourseData, index: number, t: any) {
           }}
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <Link
-            to="/login"
-            className="bg-white/20 backdrop-blur-sm text-white rounded-full p-3 hover:bg-white/30 transition-colors"
+          <button
+            onClick={() => onSelect(course)}
+            className="bg-white/20 backdrop-blur-sm text-white rounded-full p-3 hover:bg-white/30 transition-colors cursor-pointer"
           >
-            <PlayCircle className="h-8 w-8" />
-          </Link>
+            <Eye className="h-6 w-6" />
+          </button>
         </div>
         <div className="absolute top-3 left-3 bg-white/90 dark:bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-md text-xs font-bold text-slate-900 dark:text-white shadow-sm uppercase tracking-wider">
           {course.category}
@@ -415,7 +444,9 @@ function renderCourseCard(course: CourseData, index: number, t: any) {
       </div>
       <div className="p-5 flex-1 flex flex-col">
         <h3 className="font-bold text-lg mb-2 line-clamp-2 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-          {course.title}
+          {i18n.exists(`dynamic.courses.${course.title}`)
+            ? t(`dynamic.courses.${course.title}`)
+            : course.title}
         </h3>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 mt-auto">
           {t("guest.instructor", "Eğitmen:")}{" "}

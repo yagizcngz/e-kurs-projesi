@@ -4,6 +4,7 @@ import { CheckCircle2, Edit2, UploadCloud } from "lucide-react";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { fetchCategories, type CourseData, type TeacherLiteDto } from "../components/courseHelpers";
 
 export const Route = createFileRoute("/_authenticated/profil")({
   head: () => ({
@@ -55,6 +56,8 @@ interface ProfileDto {
   LastName?: string;
   isProfilePublic?: boolean;
   IsProfilePublic?: boolean;
+  branch?: string;
+  Branch?: string;
 }
 
 const translateRole = (role: string, t: TFunction) => {
@@ -76,6 +79,18 @@ function ProfilePage() {
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [branch, setBranch] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchCats = async () => {
+      const token = localStorage.getItem("jwt_token");
+      const cats = await fetchCategories(token || undefined);
+      setCategories(cats);
+    };
+    fetchCats();
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("jwt_token");
@@ -122,6 +137,15 @@ function ProfilePage() {
           setBio(data.aboutMe || data.AboutMe || "");
           setIsPublic(data.isProfilePublic ?? data.IsProfilePublic ?? true);
 
+          if (data.branch || data.Branch) {
+            setBranch(
+              (data.branch || data.Branch || "")
+                .split(",")
+                .map((b: string) => b.trim())
+                .filter(Boolean),
+            );
+          }
+
           const fName = data.firstName || data.FirstName;
           const lName = data.lastName || data.LastName;
 
@@ -150,28 +174,56 @@ function ProfilePage() {
     loadProfile();
   }, [t]);
 
+  const [taughtCourses, setTaughtCourses] = useState<CourseData[]>([]);
+
   useEffect(() => {
     const token = localStorage.getItem("jwt_token");
     if (!token) return;
 
-    const fetchEnrollments = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch("http://localhost:5157/api/enrollments", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-        if (res.ok) {
-          setEnrollments(await res.json());
+        const [enrRes, crsRes, tchRes] = await Promise.all([
+          fetch("http://localhost:5157/api/enrollments/my-courses", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch("http://localhost:5157/api/courses", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch("http://localhost:5157/api/teachers", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        if (enrRes.ok) {
+          setEnrollments(await enrRes.json());
+        }
+
+        if (crsRes.ok && tchRes.ok) {
+          const allCourses = await crsRes.json();
+          const allTeachers = await tchRes.json();
+          const teachers = await tchRes.json();
+
+          const payload = parseJwt(token);
+          const email =
+            payload?.["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] ||
+            payload?.email;
+          const me = teachers.find(
+            (t: TeacherLiteDto) => email && (t.email === email || t.Email === email),
+          );
+          const myTeacherId = me ? me.id || me.Id : null;
+
+          const myTaughtCourses = allCourses.filter((c: CourseData) => {
+            return myTeacherId && (c.teacherId === myTeacherId || c.TeacherId === myTeacherId);
+          });
+          setTaughtCourses(myTaughtCourses);
         }
       } catch (error) {
-        console.error("Profilde kayıtlı kurslar yüklenirken hata:", error);
+        console.error("Profil verileri yüklenirken hata:", error);
       }
     };
 
-    fetchEnrollments();
-  }, []);
+    fetchData();
+  }, [name]);
 
   useEffect(() => {
     const onProfileUpdated = (e: Event) => {
@@ -209,6 +261,7 @@ function ProfilePage() {
           AboutMe: bio,
           ProfilePictureUrl: photoUrl,
           IsProfilePublic: isPublic,
+          Branch: isTeacherRole ? branch.join(", ") : undefined,
         }),
       });
 
@@ -218,7 +271,8 @@ function ProfilePage() {
         );
         showToast(t("profile.errors.updateSuccess"));
       } else {
-        showToast(t("profile.errors.updateFailed"), "error");
+        const errorText = await response.text();
+        showToast(errorText || t("profile.errors.updateFailed"), "error");
       }
     } catch (err) {
       console.error(err);
@@ -257,21 +311,24 @@ function ProfilePage() {
     }
   };
 
-  const displayedCourses = useMemo(() => {
-    const normalizedName = name.trim().toLowerCase();
-    const matchedEnrollments = enrollments
-      .filter((enrollment) => {
-        const studentFullName = (
-          enrollment.studentFullName ||
-          enrollment.StudentFullName ||
-          ""
-        ).toLowerCase();
-        return normalizedName && studentFullName.includes(normalizedName);
-      })
-      .map((enrollment) => enrollment.courseTitle || enrollment.CourseTitle || "");
+  const isTeacherRole =
+    role === t("profile.roles.teacher") ||
+    role.toLowerCase() === "eğitmen" ||
+    role.toLowerCase() === "teacher";
 
-    return [...new Set(matchedEnrollments)];
-  }, [enrollments, name]);
+  const displayedCourses = useMemo(() => {
+    const taughtCourseTitles = isTeacherRole
+      ? taughtCourses.map((c: CourseData) => (c.title || c.Title || "").toLowerCase())
+      : [];
+
+    const myCourseTitles = enrollments.map(
+      (enrollment) => enrollment.courseTitle || enrollment.CourseTitle || "",
+    );
+
+    return [...new Set(myCourseTitles)].filter(
+      (title) => title && !taughtCourseTitles.includes(title.toLowerCase()),
+    );
+  }, [enrollments, taughtCourses, isTeacherRole]);
 
   const initials = name
     .split(" ")
@@ -315,10 +372,52 @@ function ProfilePage() {
                 <h3 className="text-sm font-bold text-muted-foreground mb-1">
                   {t("profile.aboutMe")}
                 </h3>
-                <p className="mt-2 text-sm text-foreground leading-6">
+                <p className="mt-2 text-sm text-foreground leading-6 break-words overflow-hidden max-h-32 overflow-y-auto">
                   {!profileLoaded ? t("profile.loading") : bio || t("profile.noBio")}
                 </p>
               </div>
+
+              {isTeacherRole && branch.length > 0 && (
+                <div className="bg-card border border-border p-5 rounded-2xl sm:col-span-2 mt-4">
+                  <h3 className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase mb-1">
+                    Branşlar
+                  </h3>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {branch.map((b) => (
+                      <span
+                        key={b}
+                        className="bg-slate-100 dark:bg-zinc-800 text-sm px-2 py-1 rounded-md"
+                      >
+                        {i18n.exists(`dynamic.categories.${b}`) ? t(`dynamic.categories.${b}`) : b}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {isTeacherRole ? (
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold text-muted-foreground mb-1">
+                    {t("profile.taughtCourses", "Verdiği Dersler")}
+                  </h3>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {taughtCourses.length > 0 ? (
+                      taughtCourses.map((course: CourseData) => (
+                        <span
+                          key={course.id || course.Id || course.title || course.Title}
+                          className="rounded-full border border-primary text-primary bg-primary/5 px-3 py-1 text-xs font-bold"
+                        >
+                          {i18n.exists(`dynamic.courses.${course.title || course.Title}`)
+                            ? t(`dynamic.courses.${course.title || course.Title}`)
+                            : course.title || course.Title}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">{t("profile.noCourses")}</p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
               <div>
                 <h3 className="text-sm font-bold text-muted-foreground mb-1">
@@ -410,11 +509,40 @@ function ProfilePage() {
                 <textarea
                   rows={4}
                   value={bio}
-                  maxLength={1000}
+                  maxLength={200}
                   onChange={(e) => setBio(e.target.value)}
                   className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-foreground transition-colors resize-none"
                 />
+                <p className="text-xs text-muted-foreground mt-1 text-right">{bio.length}/200</p>
               </div>
+
+              {isTeacherRole && (
+                <div className="pt-2">
+                  <label className="text-sm font-medium">Branşlarınız</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                    {categories.map((c) => (
+                      <label
+                        key={c}
+                        className="flex items-center gap-2 text-sm bg-slate-50 dark:bg-zinc-800/50 p-2 rounded-md cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={branch.includes(c)}
+                          onChange={(e) => {
+                            if (e.target.checked) setBranch([...branch, c]);
+                            else setBranch(branch.filter((b) => b !== c));
+                          }}
+                          className="rounded text-indigo-600 focus:ring-indigo-500"
+                        />
+                        {i18n.exists(`dynamic.categories.${c}`) ? t(`dynamic.categories.${c}`) : c}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Ders verdiğiniz branşları seçin. Aktif kursunuz olan bir branşı çıkartamazsınız.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2 pt-2">
                 <label className="text-sm font-medium block">

@@ -23,7 +23,7 @@ interface TeachingRequest {
 }
 
 function RequestsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [requests, setRequests] = useState<TeachingRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -113,7 +113,11 @@ function RequestsPage() {
                     <div className="font-semibold text-lg">{request.teacherName}</div>
                     <div className="text-sm text-muted-foreground">
                       Kurs:{" "}
-                      <span className="font-medium text-foreground">{request.courseTitle}</span>
+                      <span className="font-medium text-foreground">
+                        {i18n.exists(`dynamic.courses.${(request.courseTitle || "").trim()}`)
+                          ? t(`dynamic.courses.${(request.courseTitle || "").trim()}`)
+                          : request.courseTitle}
+                      </span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       Tarih: {new Date(request.createdAt).toLocaleDateString()}

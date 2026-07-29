@@ -31,6 +31,16 @@ namespace EdTechApi.API.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user == null) return NotFound();
 
+            string? branch = null;
+            if (user.Role == "Teacher" || user.Role == "Eğitmen")
+            {
+                var teacher = await _context.Teachers.FirstOrDefaultAsync(t => t.UserId == user.Id || t.Email == user.Email);
+                if (teacher != null)
+                {
+                    branch = teacher.Branch;
+                }
+            }
+
             var response = new
             {
                 source = user.Role.ToLower(),
@@ -41,7 +51,8 @@ namespace EdTechApi.API.Controllers
                 firstName = user.FirstName,
                 lastName = user.LastName,
                 isProfilePublic = user.IsProfilePublic,
-                receiveEmailNotifications = user.ReceiveEmailNotifications
+                receiveEmailNotifications = user.ReceiveEmailNotifications,
+                branch = branch
             };
 
             return Ok(response);
@@ -83,6 +94,36 @@ namespace EdTechApi.API.Controllers
                 teacher.ProfilePictureUrl = request.ProfilePictureUrl;
                 teacher.FirstName = user.FirstName;
                 teacher.LastName = user.LastName;
+
+                if (request.Branch != null)
+                {
+                    var oldBranches = string.IsNullOrWhiteSpace(teacher.Branch) 
+                        ? new List<string>() 
+                        : teacher.Branch.Split(",").Select(b => b.Trim()).ToList();
+                    
+                    var newBranches = string.IsNullOrWhiteSpace(request.Branch)
+                        ? new List<string>()
+                        : request.Branch.Split(",").Select(b => b.Trim()).ToList();
+
+                    var removedBranches = oldBranches.Except(newBranches).ToList();
+                    
+                    if (removedBranches.Any())
+                    {
+                        var activeCoursesInRemovedBranches = await _context.Courses
+                            .Where(c => c.TeacherId == teacher.Id && removedBranches.Contains(c.Category))
+                            .Select(c => c.Category)
+                            .Distinct()
+                            .ToListAsync();
+
+                        if (activeCoursesInRemovedBranches.Any())
+                        {
+                            var branchesStr = string.Join(", ", activeCoursesInRemovedBranches);
+                            return BadRequest($"Şu branşta verdiğiniz kurslar var: {branchesStr}. Önce o kursları silmeli veya devretmelisiniz.");
+                        }
+                    }
+
+                    teacher.Branch = request.Branch;
+                }
             }
 
             await _context.SaveChangesAsync();
@@ -177,6 +218,7 @@ namespace EdTechApi.API.Controllers
         public string? ProfilePictureUrl { get; set; }
         public bool? IsProfilePublic { get; set; }
         public bool? ReceiveEmailNotifications { get; set; }
+        public string? Branch { get; set; }
     }
 
     public class ChangePasswordRequest

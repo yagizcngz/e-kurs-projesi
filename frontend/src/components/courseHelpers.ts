@@ -64,6 +64,10 @@ export interface EnrollmentDto {
   CourseId?: string | number;
   course?: CourseData;
   Course?: CourseData;
+  enrollmentDate?: string;
+  EnrollmentDate?: string;
+  status?: string;
+  Status?: string;
 }
 
 export interface StudentLiteDto {
