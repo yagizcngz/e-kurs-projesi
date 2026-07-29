@@ -891,7 +891,7 @@ function TeachersPage() {
                     <h3 className="text-sm font-bold text-foreground/80 mb-2">
                       {t("teachers.aboutMe")}
                     </h3>
-                    <p className="text-sm text-foreground break-words whitespace-pre-wrap break-all">
+                    <p className="text-sm text-foreground wrap-break-words whitespace-pre-wrap break-all">
                       {selectedProfileTeacher.aboutMe ||
                         selectedProfileTeacher.AboutMe ||
                         t("teachers.noBio")}

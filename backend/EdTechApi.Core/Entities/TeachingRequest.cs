@@ -14,7 +14,8 @@ namespace EdTechApi.Core.Entities
         
         // Pending, Accepted, Rejected
         public string Status { get; set; } = "Pending";
-        
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        
+        public bool IsDeletedByAdmin { get; set; } = false;
     }
 }

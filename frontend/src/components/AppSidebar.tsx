@@ -64,6 +64,7 @@ const getMenuItems = (t: TFunction) => [
   { title: t("sidebar.enrollments"), url: "/kayitlar", icon: ClipboardList },
   { title: t("sidebar.reports"), url: "/raporlar", icon: BarChart3 },
   { title: t("sidebar.announcements"), url: "/duyurular", icon: Bell },
+  { title: t("sidebar.mySupportRequests", "Yardım Taleplerim"), url: "/yardim-taleplerim", icon: HelpCircle },
 ];
 
 export function AppSidebar() {
@@ -216,16 +217,19 @@ export function AppSidebar() {
       // Admins don't teach courses usually, but they can see everything else
       if (item.url === "/verdigim-kurslar") return false;
       if (item.url === "/kurslarim") return false;
+      if (item.url === "/yardim-taleplerim") return false;
       return true;
     }
 
     if (role === "teacher") {
       if (item.url === "/verdigim-kurslar") return true;
       if (item.url === "/kurslarim") return true;
+      if (item.url === "/yardim-taleplerim") return true;
     }
 
     // Default for user/student or unrecognized role
     if (item.url === "/kurslarim") return true;
+    if (item.url === "/yardim-taleplerim") return true;
 
     return false;
   });

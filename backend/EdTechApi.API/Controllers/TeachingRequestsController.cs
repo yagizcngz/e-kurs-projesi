@@ -110,6 +110,7 @@ namespace EdTechApi.API.Controllers
             var requests = await _context.TeachingRequests
                 .Include(r => r.Course)
                 .Include(r => r.Teacher)
+                .Where(r => !r.IsDeletedByAdmin)
                 .OrderByDescending(r => r.CreatedAt)
                 .Select(r => new {
                     r.Id,
@@ -184,6 +185,34 @@ namespace EdTechApi.API.Controllers
             return Ok();
         }
 
+        // DELETE: api/teachingrequests/clear-resolved
+        [HttpDelete("clear-resolved")]
+        public async Task<IActionResult> ClearResolvedRequests()
+        {
+            var username = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+                
+            if (string.IsNullOrEmpty(username)) return Unauthorized();
+            
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null || (user.Role.ToLower() != "admin" && user.Role.ToLower() != "superadmin")) return StatusCode(403, "Admin access required.");
+
+            var resolvedRequests = await _context.TeachingRequests
+                .Where(r => r.Status != "Pending")
+                .ToListAsync();
+
+            if (resolvedRequests.Any())
+            {
+                foreach(var req in resolvedRequests)
+                {
+                    req.IsDeletedByAdmin = true;
+                }
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new { message = "Resolved teaching requests cleared." });
+        }
+
         // DELETE: api/teachingrequests/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteRequest(int id)
@@ -194,19 +223,32 @@ namespace EdTechApi.API.Controllers
             if (string.IsNullOrEmpty(username)) return Unauthorized();
             
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
-            if (user == null || user.Role.ToLower() != "teacher") return StatusCode(403, "Only teachers can delete requests.");
+            if (user == null) return Unauthorized();
 
-            var teacher = await _context.Teachers.FirstOrDefaultAsync(t => t.UserId == user.Id);
-            if (teacher == null) return NotFound("Teacher profile not found.");
-
-            var request = await _context.TeachingRequests.FirstOrDefaultAsync(r => r.Id == id && r.TeacherId == teacher.Id);
+            var request = await _context.TeachingRequests.FindAsync(id);
             if (request == null) return NotFound("Request not found.");
 
-            if (request.Status != "Pending") return BadRequest("Only pending requests can be deleted.");
+            if (user.Role.ToLower() == "admin" || user.Role.ToLower() == "superadmin")
+            {
+                // Admin soft deletes the request for themselves
+                request.IsDeletedByAdmin = true;
+                await _context.SaveChangesAsync();
+                return Ok();
+            }
+            else if (user.Role.ToLower() == "teacher")
+            {
+                // Teacher can only delete their own pending requests
+                var teacher = await _context.Teachers.FirstOrDefaultAsync(t => t.UserId == user.Id);
+                if (teacher == null || request.TeacherId != teacher.Id) return StatusCode(403, "Forbidden");
 
-            _context.TeachingRequests.Remove(request);
-            await _context.SaveChangesAsync();
-            return Ok();
+                if (request.Status != "Pending") return BadRequest("Only pending requests can be deleted.");
+
+                _context.TeachingRequests.Remove(request);
+                await _context.SaveChangesAsync();
+                return Ok();
+            }
+
+            return StatusCode(403, "Forbidden");
         }
     }
     

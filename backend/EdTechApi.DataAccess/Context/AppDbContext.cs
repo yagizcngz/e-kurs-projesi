@@ -23,6 +23,7 @@ namespace EdTechApi.DataAccess.Context
         public DbSet<Category> Categories { get; set; }
         public DbSet<Announcement> Announcements { get; set; }
         public DbSet<TeachingRequest> TeachingRequests { get; set; }
+        public DbSet<SupportRequest> SupportRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

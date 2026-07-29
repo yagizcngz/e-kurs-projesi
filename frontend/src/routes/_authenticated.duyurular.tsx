@@ -69,8 +69,12 @@ function AnnouncementsPage() {
     const token = localStorage.getItem("jwt_token");
     if (token) {
       const payload = parseJwt(token);
-      if (payload && (payload.role === "Admin" || payload.role === "superadmin")) {
-        setIsAdmin(true);
+      if (payload) {
+        const role =
+          payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || payload.role;
+        if (role === "Admin" || role === "superadmin") {
+          setIsAdmin(true);
+        }
       }
     }
     fetchAnnouncements();

@@ -33,7 +33,9 @@ namespace EdTechApi.Business.Services
                 query = query.Where(c => c.IsFeatured == isFeatured.Value);
             }
 
-            return await query.ToListAsync();
+            return await query
+                .OrderByDescending(c => c.Enrollments.Count)
+                .ToListAsync();
         }
 
         public async Task<IEnumerable<Course>> GetPopularCoursesAsync(int count)

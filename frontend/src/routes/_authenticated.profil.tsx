@@ -372,7 +372,7 @@ function ProfilePage() {
                 <h3 className="text-sm font-bold text-muted-foreground mb-1">
                   {t("profile.aboutMe")}
                 </h3>
-                <p className="mt-2 text-sm text-foreground leading-6 break-words overflow-hidden max-h-32 overflow-y-auto">
+                <p className="mt-2 text-sm text-foreground leading-6 wrap-break-words overflow-hidden max-h-32 overflow-y-auto">
                   {!profileLoaded ? t("profile.loading") : bio || t("profile.noBio")}
                 </p>
               </div>
@@ -380,7 +380,7 @@ function ProfilePage() {
               {isTeacherRole && branch.length > 0 && (
                 <div className="bg-card border border-border p-5 rounded-2xl sm:col-span-2 mt-4">
                   <h3 className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase mb-1">
-                    Branşlar
+                    {t("profile.branches")}
                   </h3>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {branch.map((b) => (
@@ -518,7 +518,7 @@ function ProfilePage() {
 
               {isTeacherRole && (
                 <div className="pt-2">
-                  <label className="text-sm font-medium">Branşlarınız</label>
+                  <label className="text-sm font-medium">{t("profile.branchesLabel")}</label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
                     {categories.map((c) => (
                       <label
@@ -539,7 +539,7 @@ function ProfilePage() {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Ders verdiğiniz branşları seçin. Aktif kursunuz olan bir branşı çıkartamazsınız.
+                    {t("profile.branchesHelper")}
                   </p>
                 </div>
               )}

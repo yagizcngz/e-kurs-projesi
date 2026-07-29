@@ -220,7 +220,12 @@ function TaughtCoursesPage() {
               {courses.map((c, index) => {
                 const currentId = c.id || c.Id;
                 const title = c.title || c.Title || t("courses.unnamedCourse");
-                const category = c.category || c.Category || t("courses.general");
+                const categoryRaw = c.category || c.Category || "";
+                const category = categoryRaw
+                  ? i18n.exists(`dynamic.categories.${categoryRaw}`)
+                    ? t(`dynamic.categories.${categoryRaw}`)
+                    : categoryRaw
+                  : t("courses.general");
                 const price = c.price || c.Price || "0";
                 const instructor = c.instructor || c.Instructor || t("courses.unknown");
                 const imageUrl = getCourseImage(c, index);

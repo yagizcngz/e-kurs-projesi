@@ -439,7 +439,9 @@ function renderCourseCard(
           </button>
         </div>
         <div className="absolute top-3 left-3 bg-white/90 dark:bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-md text-xs font-bold text-slate-900 dark:text-white shadow-sm uppercase tracking-wider">
-          {course.category}
+          {i18n.exists(`dynamic.categories.${course.category}`)
+            ? t(`dynamic.categories.${course.category}`)
+            : course.category}
         </div>
       </div>
       <div className="p-5 flex-1 flex flex-col">

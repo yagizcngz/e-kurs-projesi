@@ -14,6 +14,8 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedYardimTaleplerimRouteImport } from './routes/_authenticated.yardim-taleplerim'
+import { Route as AuthenticatedYardimRouteImport } from './routes/_authenticated.yardim'
 import { Route as AuthenticatedVerdigimKurslarRouteImport } from './routes/_authenticated.verdigim-kurslar'
 import { Route as AuthenticatedRaporlarRouteImport } from './routes/_authenticated.raporlar'
 import { Route as AuthenticatedProfilRouteImport } from './routes/_authenticated.profil'
@@ -50,6 +52,17 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedYardimTaleplerimRoute =
+  AuthenticatedYardimTaleplerimRouteImport.update({
+    id: '/yardim-taleplerim',
+    path: '/yardim-taleplerim',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedYardimRoute = AuthenticatedYardimRouteImport.update({
+  id: '/yardim',
+  path: '/yardim',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedVerdigimKurslarRoute =
   AuthenticatedVerdigimKurslarRouteImport.update({
@@ -131,6 +144,8 @@ export interface FileRoutesByFullPath {
   '/profil': typeof AuthenticatedProfilRoute
   '/raporlar': typeof AuthenticatedRaporlarRoute
   '/verdigim-kurslar': typeof AuthenticatedVerdigimKurslarRoute
+  '/yardim': typeof AuthenticatedYardimRoute
+  '/yardim-taleplerim': typeof AuthenticatedYardimTaleplerimRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -149,6 +164,8 @@ export interface FileRoutesByTo {
   '/profil': typeof AuthenticatedProfilRoute
   '/raporlar': typeof AuthenticatedRaporlarRoute
   '/verdigim-kurslar': typeof AuthenticatedVerdigimKurslarRoute
+  '/yardim': typeof AuthenticatedYardimRoute
+  '/yardim-taleplerim': typeof AuthenticatedYardimTaleplerimRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -169,6 +186,8 @@ export interface FileRoutesById {
   '/_authenticated/profil': typeof AuthenticatedProfilRoute
   '/_authenticated/raporlar': typeof AuthenticatedRaporlarRoute
   '/_authenticated/verdigim-kurslar': typeof AuthenticatedVerdigimKurslarRoute
+  '/_authenticated/yardim': typeof AuthenticatedYardimRoute
+  '/_authenticated/yardim-taleplerim': typeof AuthenticatedYardimTaleplerimRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -189,6 +208,8 @@ export interface FileRouteTypes {
     | '/profil'
     | '/raporlar'
     | '/verdigim-kurslar'
+    | '/yardim'
+    | '/yardim-taleplerim'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -207,6 +228,8 @@ export interface FileRouteTypes {
     | '/profil'
     | '/raporlar'
     | '/verdigim-kurslar'
+    | '/yardim'
+    | '/yardim-taleplerim'
   id:
     | '__root__'
     | '/'
@@ -226,6 +249,8 @@ export interface FileRouteTypes {
     | '/_authenticated/profil'
     | '/_authenticated/raporlar'
     | '/_authenticated/verdigim-kurslar'
+    | '/_authenticated/yardim'
+    | '/_authenticated/yardim-taleplerim'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -272,6 +297,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/yardim-taleplerim': {
+      id: '/_authenticated/yardim-taleplerim'
+      path: '/yardim-taleplerim'
+      fullPath: '/yardim-taleplerim'
+      preLoaderRoute: typeof AuthenticatedYardimTaleplerimRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/yardim': {
+      id: '/_authenticated/yardim'
+      path: '/yardim'
+      fullPath: '/yardim'
+      preLoaderRoute: typeof AuthenticatedYardimRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/verdigim-kurslar': {
       id: '/_authenticated/verdigim-kurslar'
@@ -373,6 +412,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedProfilRoute: typeof AuthenticatedProfilRoute
   AuthenticatedRaporlarRoute: typeof AuthenticatedRaporlarRoute
   AuthenticatedVerdigimKurslarRoute: typeof AuthenticatedVerdigimKurslarRoute
+  AuthenticatedYardimRoute: typeof AuthenticatedYardimRoute
+  AuthenticatedYardimTaleplerimRoute: typeof AuthenticatedYardimTaleplerimRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -388,6 +429,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedProfilRoute: AuthenticatedProfilRoute,
   AuthenticatedRaporlarRoute: AuthenticatedRaporlarRoute,
   AuthenticatedVerdigimKurslarRoute: AuthenticatedVerdigimKurslarRoute,
+  AuthenticatedYardimRoute: AuthenticatedYardimRoute,
+  AuthenticatedYardimTaleplerimRoute: AuthenticatedYardimTaleplerimRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
