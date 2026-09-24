@@ -43,3 +43,8 @@ backend/EdTechApi.API/wwwroot/uploads/
 
 # Windows thumbnail cache
 Thumbs.db
+
+# Configuration and secrets
+appsettings.json
+appsettings.*.json
+!appsettings.example.json
